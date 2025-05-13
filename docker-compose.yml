@@ -1,0 +1,25 @@
+services:
+  nginx:
+    image: nginx:latest
+    container_name: Transfert-Tetelec
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+    networks:
+      - app-network
+
+  php:
+    image: php:8.2-fpm
+    container_name: tetelec-php
+    volumes:
+      - .:/var/www/html
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
