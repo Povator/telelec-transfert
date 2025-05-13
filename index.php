@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transfert Tetelec</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/style.css">
+    <script src="/script.js"></script>
 </head>
 <body>
     <?php include './Present/header.php'; ?>
     
+</div>
     <main>
         <h1>Bienvenue sur Tetelec Transfert</h1>
         <p>Ce site vous permet d'envoyer et de recevoir des fichiers de manière sécurisée.</p>
