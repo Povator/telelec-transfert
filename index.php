@@ -12,7 +12,7 @@
     
 </div>
     <main>
-        <h1>Bienvenue sur Tetelec Transfert</h1>
+        <h1>Bienvenue sur Telelec Transfert</h1>
         <p>Ce site vous permet d'envoyer et de recevoir des fichiers de manière sécurisée.</p>
         <p>Utilisez le menu pour naviguer entre les différentes sections.</p>
         <p>Pour toute question, n'hésitez pas à nous contacter.</p>
