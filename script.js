@@ -91,46 +91,6 @@ const handleDrop = (e) => {
     draggedItem = undefined;
 }
 
-// Gestion du drag & drop de fichiers
-document.addEventListener('DOMContentLoaded', () => {
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileToUpload');
-    const form = document.getElementById('uploadForm');
-
-    if (dropZone && fileInput && form) {
-        dropZone.addEventListener('dragenter', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropZone.classList.add('dragover');
-        });
-
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropZone.classList.add('dragover');
-        });
-
-        dropZone.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropZone.classList.remove('dragover');
-
-            const dt = e.dataTransfer;
-            const files = dt.files;
-
-            if (files.length > 0) {
-                fileInput.files = files;
-                form.submit();
-            }
-        });
-    }
-});
-
 // Activer le tri des éléments (liste)
 listItems.forEach(listItem => {
     listItem.addEventListener('dragstart', handleDragStart);

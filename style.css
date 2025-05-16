@@ -46,6 +46,10 @@ body {
     border-radius: 4px;
     text-decoration: none;
     transition: background-color 0.3s ease;
+    font-family: "Cocogoose", sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0px;
 }
 
 .nav-button:hover {

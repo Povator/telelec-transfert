@@ -1,4 +1,5 @@
-<div class="footer-content">
-    <p>&copy; 2025 - Valentin Doe</p>
-    <p>Site réalisé par Valentin et mathis</p>
-</div>
+<footer>
+    <div class="footer-content">
+        <p>&copy; <?php echo date('Y'); ?> Telelec. Tous droits réservés.</p>
+    </div>
+</footer>
