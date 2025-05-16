@@ -1,7 +1,9 @@
+version: "3.8"
+
 services:
   nginx:
     image: nginx:latest
-    container_name: Transfert-Tetelec
+    container_name: Transfert-Telelec
     ports:
       - "8080:80"
     volumes:
@@ -13,12 +15,36 @@ services:
       - app-network
 
   php:
-    image: php:8.2-fpm
-    container_name: tetelec-php
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: Telelec-PHP
     volumes:
       - .:/var/www/html
+    depends_on:
+      - db
     networks:
       - app-network
+
+
+  db:
+    image: mysql:8.0
+    container_name: Telelec-MySQL
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: telelec
+      MYSQL_USER: telelecuser
+      MYSQL_PASSWORD: userpassword
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - app-network
+    ports:
+      - "3306:3306"  # uniquement si tu veux accéder à la DB depuis l'extérieur (facultatif)
+
+volumes:
+  db-data:
 
 networks:
   app-network:

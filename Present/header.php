@@ -10,7 +10,6 @@
     <div class="nav-left">
         <a href="/index.php" class="nav-item">Accueil</a>
         <a href="/Transfert/send.php" class="nav-item">Envoyer</a>
-        <a href="/Transfert/receive.php" class="nav-item">Recevoir</a>
     </div>
     <div class="nav-right">
         <a href="https://www.telelec.fr/" class="nav-button">Tetelec Transfert</a>

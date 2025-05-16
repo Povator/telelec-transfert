@@ -10,7 +10,7 @@ body {
 }
 
 .navbar {
-    background-color: #45a1ff;  /* Bleu Tetelec */
+    background-color: #31353B; 
     padding: 1rem 2rem;
     display: flex;
     justify-content: space-between;
@@ -25,18 +25,23 @@ body {
 
 .nav-item {
     text-decoration: none;
-    color: white;  /* Texte blanc pour contraster avec le fond bleu */
+    color: #ED501C;  /* Texte blanc pour contraster avec le fond bleu */
     padding: 0.5rem 1rem;
     transition: color 0.3s ease;
+    font-family: "Cocogoose", sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0px;
 }
 
 .nav-item:hover {
-    color: #00ffb7;  /* Jaune au survol */
+    color: white;  /* Jaune au survol */
+    
 }
 
 .nav-button {
-    background-color: white;  /* Fond blanc */
-    color: #45a1ff;  /* Texte bleu */
+    background-color: #ED501C;
+    color: #31353B;  /* Changement de la couleur du texte */
     padding: 0.5rem 1rem;
     border-radius: 4px;
     text-decoration: none;
@@ -44,8 +49,8 @@ body {
 }
 
 .nav-button:hover {
-background-color: #00ffb7;  /* Jaune au survol */
-    color: white;  /* Texte blanc au survol */
+background-color: white;  /* Jaune au survol */
+    color: #31353B;  /* Texte blanc au survol */
 }
 
 
@@ -54,8 +59,8 @@ background-color: #00ffb7;  /* Jaune au survol */
     display: flex;
     justify-content: center;
     padding: 15px;
-    background-color: #45a1ff;  /* Bleu Tetelec */
-    color: white;
+    background-color: #31353B;  /* Changement de la couleur de fond */
+    color: #ED501C;
     position: fixed;
     bottom: 0;
     width: 100%;
