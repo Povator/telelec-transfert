@@ -1,4 +1,7 @@
 RewriteEngine On
+
+# Autoriser l'accès direct à download.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/download\.php
 RewriteRule ^([a-zA-Z0-9]+)$ download.php?code=$1 [L,QSA]

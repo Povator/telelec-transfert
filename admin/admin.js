@@ -40,3 +40,18 @@ editForm.onsubmit = function(e) {
         }
     });
 }
+
+function refreshDatabase() {
+    if (confirm('Voulez-vous vraiment nettoyer la base de données ?')) {
+        fetch('/clean_database.php')
+            .then(response => response.text())
+            .then(result => {
+                alert(result);
+                window.location.href = '/admin/dashboard.php';
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Erreur lors du nettoyage de la base de données');
+            });
+    }
+}

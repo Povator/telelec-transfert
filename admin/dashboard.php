@@ -13,6 +13,10 @@
     <?php include '../Present/header.php'; ?>
     
     <main>
+        
+        <div class="admin-controls">
+            <button type="button" onclick="refreshDatabase()" class="refresh-btn">Rafraîchir la BDD</button>
+        </div>
         <h1>Liste des fichiers :</h1>
         <?php
             date_default_timezone_set('Europe/Paris');
@@ -53,8 +57,7 @@
                         $date = new DateTime($file['upload_date']);
                         echo "<td>" . $date->format('d/m/Y H:i') . "</td>";
                         echo "<td class='truncate'>" . htmlspecialchars($file['company']) . "</td>";
-                        echo "<td>" . htmlspecialchars($file['download_code']) . " <a href='/" . htmlspecialchars($file['download_code']) . "' target='_blank' class='download-link'>🔗</a></td>";
-                        echo "<td>" . ($file['downloaded'] ? 'Oui' : 'Non') . "</td>";
+                        echo "<td>" . htmlspecialchars($file['download_code']) . " <a href='/download.php?code=" . htmlspecialchars($file['download_code']) . "' target='_blank' class='download-link'>🔗</a></td>";                        echo "<td>" . ($file['downloaded'] ? 'Oui' : 'Non') . "</td>";
                         echo "<td>" . htmlspecialchars($file['download_ip'] ?? 'Non téléchargé') . "</td>";
                         echo "<td class='truncate' title='" . htmlspecialchars($file['user_agent'] ?? 'Non téléchargé') . "'>" . htmlspecialchars($file['user_agent'] ?? 'Non téléchargé') . "</td>";
                         $download_time = $file['download_time'] ? (new DateTime($file['download_time']))->format('d/m/Y H:i') : 'Non téléchargé';

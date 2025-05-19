@@ -118,3 +118,21 @@
 .admin-table th:nth-child(9) { width: 10%; } /* Date téléchargement */
 .admin-table th:nth-child(10) { width: 5%; } /* Ville */
 .admin-table th:nth-child(11) { width: 5%; } /* Actions */
+
+/* Nouveaux styles ajoutés */
+.admin-controls {
+    margin: 20px 0;
+}
+
+.refresh-btn {
+    padding: 8px 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.refresh-btn:hover {
+    background-color: #45a049;
+}
