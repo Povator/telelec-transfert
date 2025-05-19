@@ -53,7 +53,7 @@
                         $date = new DateTime($file['upload_date']);
                         echo "<td>" . $date->format('d/m/Y H:i') . "</td>";
                         echo "<td class='truncate'>" . htmlspecialchars($file['company']) . "</td>";
-                        echo "<td>" . htmlspecialchars($file['download_code']) . "</td>";
+                        echo "<td>" . htmlspecialchars($file['download_code']) . " <a href='/" . htmlspecialchars($file['download_code']) . "' target='_blank' class='download-link'>🔗</a></td>";
                         echo "<td>" . ($file['downloaded'] ? 'Oui' : 'Non') . "</td>";
                         echo "<td>" . htmlspecialchars($file['download_ip'] ?? 'Non téléchargé') . "</td>";
                         echo "<td class='truncate' title='" . htmlspecialchars($file['user_agent'] ?? 'Non téléchargé') . "'>" . htmlspecialchars($file['user_agent'] ?? 'Non téléchargé') . "</td>";

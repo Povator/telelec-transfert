@@ -1,3 +1,14 @@
-ok moi je gere le pannel de admin --Val
-ça marche, je vais essayé de gérer la charge, genre pour télécharger plusieurs fichier en meme temps 
+Valentin : 
+- Faire le lien de téléchargement 
+- Faire en sortre de savoir si le fichier est bien téléchargé
+- Chiffrer les logins admin 
+- Mettre le site en https 
+
+
+
+Mathis :
+- Pouvoir mettre des gros fichiers en upload
+- Admin only (pour l'upload)
+- Gérer la surcharge du serveur (Docker Dynamique)
+- Faire un service de logs
 
