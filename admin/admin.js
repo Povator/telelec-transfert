@@ -112,3 +112,40 @@ function generateNewAuthCode(fileId) {
         });
     }
 }
+
+function deleteTransfer(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce transfert ? Cette action est irréversible.')) {
+        console.log('Tentative de suppression du fichier ID:', id);
+        
+        fetch('/admin/delete-transfer.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'id=' + encodeURIComponent(id),
+            credentials: 'same-origin' // Ajout important pour les sessions
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erreur réseau');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Réponse:', data);
+            if (data.success) {
+                const row = document.querySelector(`tr[data-id="${id}"]`);
+                if (row) {
+                    row.remove();
+                }
+                alert('Transfert supprimé avec succès');
+            } else {
+                throw new Error(data.message || 'Erreur inconnue');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue lors de la suppression: ' + error.message);
+        });
+    }
+}

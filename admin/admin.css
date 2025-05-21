@@ -46,7 +46,7 @@
 
 /* Style pour la colonne des actions */
 .admin-table td:last-child, .admin-table th:last-child {
-    min-width: 340px; /* Augmente la largeur minimale */
+    min-width: 600px; /* Augmente la largeur minimale */
 }
 
 .admin-table button {
@@ -92,6 +92,22 @@ button[onclick*='generateNewAuthCode'] {
 
 button[onclick*='generateNewAuthCode']:hover {
     background-color: #c0392b;
+}
+
+button.delete-btn {
+    background-color: #e74c3c;
+    color: white;
+    margin-left: 5px;
+}
+
+button.delete-btn:hover {
+    background-color: #c0392b;
+}
+
+/* Assurer que la colonne des actions est assez large */
+.admin-table td:last-child {
+    min-width: 400px;
+    text-align: left;
 }
 
 /* Style pour le lien de téléchargement */

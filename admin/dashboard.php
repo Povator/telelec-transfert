@@ -1,3 +1,10 @@
+<?php
+session_start();
+if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
+    header('Location: /admin/login.php');
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -80,6 +87,7 @@
                                 <button onclick='showHistory(" . $file['id'] . ")'>Voir historique</button>
                                 <button class='edit-btn' onclick='editFile(" . htmlspecialchars($file['id']) . ")'>Modifier</button>
                                 <button onclick='generateNewAuthCode(" . $file['id'] . ")'>Générer code A2F</button>
+                                <button onclick='deleteTransfer(" . $file['id'] . ")' class='delete-btn'>Supprimer</button>
                             </td>";
                         echo "</tr>";
                     }

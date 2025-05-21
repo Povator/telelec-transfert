@@ -37,6 +37,6 @@
     </main>
 
     <?php include '../Present/footer.php'; ?>
-    <script src="/js/upload.js"></script>
+    <script src="/js/send.js"></script>
 </body>
 </html>

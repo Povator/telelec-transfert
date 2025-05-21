@@ -1,4 +1,11 @@
 <?php
+session_start();
+if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Accès refusé']);
+    exit;
+}
+
 header('Content-Type: application/json');
 
 $host = 'db';

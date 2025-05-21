@@ -91,6 +91,35 @@ const handleDrop = (e) => {
     draggedItem = undefined;
 }
 
+/**
+ * Fonction pour supprimer un fichier
+ * @param {number} fileId - L'ID du fichier à supprimer
+ */
+function deleteFile(fileId) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce fichier ?')) {
+        fetch('/Transfert/delete_file.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'file_id=' + fileId
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Supprimer la ligne du tableau
+                document.querySelector(`tr[data-file-id="${fileId}"]`).remove();
+            } else {
+                alert('Erreur lors de la suppression : ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue lors de la suppression');
+        });
+    }
+}
+
 // Activer le tri des éléments (liste)
 listItems.forEach(listItem => {
     listItem.addEventListener('dragstart', handleDragStart);
