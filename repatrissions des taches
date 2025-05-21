@@ -1,15 +1,17 @@
 Valentin : 
-- Faire le lien de téléchargement 
-- Faire en sortre de savoir si le fichier est bien téléchargé
-- Chiffrer les logins admin 
-- Mettre le site en https 
+- Faire le lien de téléchargement --> OK
+- Faire en sortre de savoir si le fichier est bien téléchargé --> OK
+- Mettre le site en https --> ok
 - CI/CD
+- Faire un service de logs
 
 
 
 Mathis :
-- Pouvoir mettre des gros fichiers en upload
+- Pouvoir mettre des gros fichiers en upload --> OK
 - Admin only (pour l'upload)
 - Gérer la surcharge du serveur (Docker Dynamique)
-- Faire un service de logs
+- Optimisation temps après upload --> Pas ok mais je ne sais pas comment faire car c'est un problème de serveur et peut être que ma barre n'est pas bien réglé 
+- Chiffrer les logins admin --> OK
+
 

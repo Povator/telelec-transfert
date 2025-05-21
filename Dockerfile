@@ -1,11 +1,25 @@
-FROM php:8.2-fpm
+FROM php:8.2-apache
 
-RUN docker-php-ext-install pdo pdo_mysql
+# Installation des dépendances et extensions PHP
+RUN apt-get update && apt-get install -y \
+    cron \
+    && docker-php-ext-install pdo pdo_mysql
 
-RUN a2enmod rewrite
-RUN service apache2 restart
+# Copier la configuration personnalisée
+COPY php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
+
+# Créer le fichier de log pour cron
+RUN touch /var/log/cron.log && chmod 666 /var/log/cron.log
+
+# Configuration de cron
+COPY docker-cron /etc/cron.d/docker-cron
+RUN chmod 0644 /etc/cron.d/docker-cron && \
+    crontab /etc/cron.d/docker-cron
 
 WORKDIR /var/www/html
 
+# Script de démarrage
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-
+ENTRYPOINT ["docker-entrypoint.sh"]

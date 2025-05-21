@@ -1,12 +1,16 @@
 <?php
 session_start();
 
+$config = require('/secure/config.php');// ← adapte ce chemin si besoin
+
+$stored_username = $config['admin_username'];
+$stored_password_hash = $config['admin_password_hash'];
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
-    
-    // À remplacer par une vraie authentification avec base de données
-    if ($username === "admin" && $password === "Stage2025T3lelec") {
+
+    if ($username === $stored_username && password_verify($password, $stored_password_hash)) {
         $_SESSION['admin'] = true;
         header("Location: /admin/dashboard.php");
         exit;

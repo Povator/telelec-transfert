@@ -10,11 +10,10 @@ try {
     $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    $sql = "UPDATE files SET filename = :filename, company = :company, download_code = :downloadCode WHERE id = :id";
+    $sql = "UPDATE files SET filename = :filename, download_code = :downloadCode WHERE id = :id";
     $stmt = $conn->prepare($sql);
     $stmt->execute([
         ':filename' => $_POST['filename'],
-        ':company' => $_POST['company'],
         ':downloadCode' => $_POST['downloadCode'],
         ':id' => $_POST['fileId']
     ]);

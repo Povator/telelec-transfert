@@ -1,4 +1,6 @@
 <?php
+require_once 'utils/virus_scan.php';
+
 function generateDownloadCode($length = 8) {
     $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     $code = '';
@@ -18,30 +20,53 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
     $company = $_POST['company'];
 
-    if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $targetFilePath)) {
-        $host = 'db'; // Le nom du service dans le docker-compose
-        $db = 'telelec';
-        $user = 'telelecuser';
-        $pass = 'userpassword';
+    // Déplacer d'abord vers un dossier temporaire pour le scan
+    $tempDir = "uploads/temp/";
+    if (!file_exists($tempDir)) {
+        mkdir($tempDir, 0777, true);
+    }
+    $tempFilePath = $tempDir . uniqid() . '_' . $fileName;
 
-        try {
-            $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
-            $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $tempFilePath)) {
+        // Scanner le fichier
+        $scanner = new VirusScan();
+        $scanResult = $scanner->scanFile($tempFilePath);
 
-            $downloadCode = generateDownloadCode();
-            
-            // Modification de la requête pour inclure toutes les colonnes obligatoires
-            $sql = "INSERT INTO files (filename, company, download_code, downloaded) VALUES (?, ?, ?, 0)";
-            $stmt = $conn->prepare($sql);
-            if ($stmt->execute([$fileName, $company, $downloadCode])) {
-                $response['success'] = true;
-                $response['message'] = "Le fichier " . htmlspecialchars($fileName) . " a été téléchargé avec succès.<br>";
-                $response['message'] .= "Code de téléchargement : " . htmlspecialchars($downloadCode);
+        if ($scanResult['status'] === 'clean') {
+            // Si le fichier est sain, le déplacer vers le dossier final
+            if (rename($tempFilePath, $targetFilePath)) {
+                $host = 'db'; // Le nom du service dans le docker-compose
+                $db = 'telelec';
+                $user = 'telelecuser';
+                $pass = 'userpassword';
+
+                try {
+                    $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
+                    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+                    $downloadCode = generateDownloadCode();
+                    
+                    // Modification de la requête pour inclure toutes les colonnes obligatoires
+                    $sql = "INSERT INTO files (filename, company, download_code, downloaded) VALUES (?, ?, ?, 0)";
+                    $stmt = $conn->prepare($sql);
+                    if ($stmt->execute([$fileName, $company, $downloadCode])) {
+                        $response['success'] = true;
+                        $response['message'] = "Le fichier " . htmlspecialchars($fileName) . " a été téléchargé avec succès.<br>";
+                        $response['message'] .= "Code de téléchargement : " . htmlspecialchars($downloadCode);
+                    } else {
+                        throw new PDOException("Échec de l'insertion dans la base de données");
+                    }
+                } catch (PDOException $e) {
+                    $response['message'] = "Erreur lors de l'ajout à la base de données : " . $e->getMessage();
+                }
             } else {
-                throw new PDOException("Échec de l'insertion dans la base de données");
+                $response['message'] = "Erreur lors du déplacement du fichier.";
+                unlink($tempFilePath); // Nettoyer le fichier temporaire
             }
-        } catch (PDOException $e) {
-            $response['message'] = "Erreur lors de l'ajout à la base de données : " . $e->getMessage();
+        } else {
+            // Si le fichier est infecté ou erreur de scan
+            $response['message'] = $scanResult['message'];
+            unlink($tempFilePath); // Supprimer le fichier infecté
         }
     } else {
         $response['message'] = "Désolé, une erreur s'est produite lors du téléchargement de votre fichier.";

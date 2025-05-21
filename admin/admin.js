@@ -1,27 +1,36 @@
 const modal = document.getElementById('editModal');
+const historyModal = document.getElementById('historyModal');
 const closeBtn = document.getElementsByClassName('close')[0];
+const historyCloseBtn = document.getElementById('historyModal').querySelector('.close');
 const editForm = document.getElementById('editForm');
 
 function editFile(id) {
     modal.style.display = 'block';
     document.getElementById('fileId').value = id;
-    
+
     // Récupérer les données actuelles du fichier
     const row = document.querySelector(`tr[data-id="${id}"]`);
     document.getElementById('filename').value = row.children[1].textContent;
-    document.getElementById('company').value = row.children[3].textContent;
-    document.getElementById('downloadCode').value = row.children[4].textContent;
+    document.getElementById('downloadCode').value = row.children[3].textContent;
 }
 
 closeBtn.onclick = function() {
     modal.style.display = 'none';
-}
+};
 
-window.onclick = function(event) {
+historyCloseBtn.onclick = function() {
+    historyModal.style.display = 'none';
+};
+
+// Gestionnaire d'événements global pour les clics
+window.addEventListener('click', function(event) {
     if (event.target == modal) {
         modal.style.display = 'none';
     }
-}
+    if (event.target == historyModal) {
+        historyModal.style.display = 'none';
+    }
+});
 
 editForm.onsubmit = function(e) {
     e.preventDefault();
@@ -53,5 +62,53 @@ function refreshDatabase() {
                 console.error('Erreur:', error);
                 alert('Erreur lors du nettoyage de la base de données');
             });
+    }
+}
+
+function showHistory(fileId) {
+    const historyContent = document.getElementById('historyContent');
+    
+    fetch(`/admin/get_history.php?file_id=${fileId}`)
+        .then(response => response.json())
+        .then(data => {
+            let html = '<table class="history-table">';
+            html += '<tr><th>Date</th><th>IP</th><th>Navigateur</th></tr>';
+            data.forEach(download => {
+                html += `<tr>
+                    <td>${download.download_time}</td>
+                    <td>${download.download_ip}</td>
+                    <td>${download.user_agent}</td>
+                </tr>`;
+            });
+            html += '</table>';
+            historyContent.innerHTML = html;
+            historyModal.style.display = 'block';
+        })
+        .catch(error => console.error('Erreur:', error));
+}
+
+// Ajouter cette nouvelle fonction
+function generateNewAuthCode(fileId) {
+    if (confirm('Voulez-vous générer un nouveau code d\'authentification ?')) {
+        fetch('generate_auth_code.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `fileId=${fileId}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Nouveau code généré : ${data.code}\nExpire le : ${data.expiration}`);
+                location.reload();
+            } else {
+                alert('Erreur lors de la génération du code');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la génération du code');
+        });
     }
 }

@@ -5,19 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transfert Tetelec</title>
     <link rel="stylesheet" href="/style.css">
-    <script src="/script.js"></script>
+    <link rel="stylesheet" href="/css/index.css">
+    <script src="/script.js" defer></script>
 </head>
 <body>
     <?php include './Present/header.php'; ?>
     
-    <main>
-        <h1>Bienvenue sur Telelec Transfert</h1>
-        <p>Ce site vous permet d'envoyer et de recevoir des fichiers de manière sécurisée.</p>
-        <p>Utilisez le menu pour naviguer entre les différentes sections.</p>
-        <p>Pour toute question, n'hésitez pas à nous contacter.</p>
-        <p>Le fichier doit faire maximum 50Go.</p>
-
+    <main class="main-container">
+        <h1 class="main-title">Bienvenue sur Telelec Transfert</h1>
         
+        <div class="welcome-text">
+            <div class="feature-card">
+                <h3>🔒 Transfert Sécurisé</h3>
+                <p>Envoyez et recevez vos fichiers en toute sécurité grâce à notre plateforme dédiée.</p>
+            </div>
+
+            <div class="feature-card">
+                <h3>🚀 Simple et Rapide</h3>
+                <p>Une interface intuitive pour faciliter vos transferts de fichiers.</p>
+            </div>
+
+            <div class="feature-card">
+                <h3>💬 Support Réactif</h3>
+                <p>Pour toute question, notre équipe est à votre disposition.</p>
+            </div>
+        </div>
+
+        <div class="file-limit">
+            <p>📁 Limite de transfert : 50 Go maximum par fichier</p>
+        </div>
+
+        <a href="/Transfert/send.php" class="cta-button">Commencer un transfert →</a>
     </main>
 
     <?php include './Present/footer.php'; ?>

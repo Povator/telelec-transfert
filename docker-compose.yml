@@ -5,14 +5,20 @@ services:
     image: nginx:latest
     container_name: Transfert-Telelec
     ports:
-      - "8080:80"
+      - "80:80"
+      - "443:443"
     volumes:
       - .:/var/www/html
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /var/lib/letsencrypt:/var/lib/letsencrypt
     depends_on:
       - php
     networks:
       - app-network
+    environment:
+      - NGINX_HOST=telelec-transfert.mathis.valentinpachei.online
+      - NGINX_PORT=443
 
   php:
     build:
@@ -21,11 +27,17 @@ services:
     container_name: Telelec-PHP
     volumes:
       - .:/var/www/html
+      - /home/stagiaire/telelec-config/config.php:/secure/config.php:ro
     depends_on:
       - db
     networks:
       - app-network
-
+    environment:
+      - PHP_FPM_PM=dynamic
+      - PHP_FPM_MAX_CHILDREN=50
+      - PHP_FPM_START_SERVERS=5
+      - PHP_FPM_MIN_SPARE_SERVERS=5
+      - PHP_FPM_MAX_SPARE_SERVERS=35
 
   db:
     image: mysql:8.0
@@ -41,7 +53,7 @@ services:
     networks:
       - app-network
     ports:
-      - "3306:3306"  # uniquement si tu veux accéder à la DB depuis l'extérieur (facultatif)
+      - "3306:3306"
 
 volumes:
   db-data:
