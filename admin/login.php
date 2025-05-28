@@ -3,6 +3,13 @@ session_start();
 
 $config = require('/secure/config.php');// ← adapte ce chemin si besoin
 
+try {
+    $conn = new PDO("mysql:host=db;dbname=telelec;charset=utf8", 'telelecuser', 'userpassword');
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Erreur de connexion : " . $e->getMessage());
+}
+
 $stored_username = $config['admin_username'];
 $stored_password_hash = $config['admin_password_hash'];
 
@@ -13,9 +20,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($username === $stored_username && password_verify($password, $stored_password_hash)) {
         $_SESSION['admin'] = true;
         header("Location: /admin/dashboard.php");
+        $sql = "INSERT INTO sessions (id, user_id, last_activity, ip_address, user_agent) 
+        VALUES (?, ?, NOW(), ?, ?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            session_id(),
+            'admin', // ou 'admin-username' si tu préfères
+            $_SERVER['REMOTE_ADDR'],
+            $_SERVER['HTTP_USER_AGENT']
+        ]);
         exit;
     } else {
         $error = "Identifiants incorrects";
+        $sql = "INSERT INTO file_logs (action_type, action_date, user_ip, status, details)
+        VALUES ('failed_login', NOW(), ?, 'error', ?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            $_SERVER['REMOTE_ADDR'],
+            'Tentative de connexion échouée avec identifiant : ' . htmlspecialchars($username)
+        ]);
     }
 }
 ?>

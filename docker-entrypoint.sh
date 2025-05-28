@@ -1,3 +1,4 @@
 #!/bin/bash
-service cron start
-apache2-foreground
+
+# Lance PHP-FPM (remplace apache2-foreground)
+exec php-fpm

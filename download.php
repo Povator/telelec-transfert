@@ -41,14 +41,29 @@ try {
             
             if (file_exists($filepath)) {
                 // Enregistrer dans l'historique
+                // Fonction pour obtenir la ville à partir de l'IP
+                function getCity($ip) {
+                    $apiUrl = "http://ip-api.com/json/" . $ip;
+                    $response = @file_get_contents($apiUrl);
+                    if ($response) {
+                        $data = json_decode($response, true);
+                        return ($data && $data['status'] === 'success') ? $data['city'] : 'Inconnue';
+                    }
+                    return 'Inconnue';
+                }
+
+                $userIp = $_SERVER['REMOTE_ADDR'];
+                $city = getCity($userIp);
+
                 $insertHistorySql = "INSERT INTO download_history 
-                    (file_id, download_time, download_ip, user_agent) 
-                    VALUES (?, NOW(), ?, ?)";
+                    (file_id, download_time, download_ip, user_agent, city) 
+                    VALUES (?, NOW(), ?, ?, ?)";
                 $historyStmt = $conn->prepare($insertHistorySql);
                 $historyStmt->execute([
                     $file['id'],
-                    $_SERVER['REMOTE_ADDR'],
-                    $_SERVER['HTTP_USER_AGENT'] ?? 'Inconnu'
+                    $userIp,
+                    $_SERVER['HTTP_USER_AGENT'] ?? 'Inconnu',
+                    $city
                 ]);
 
                 // Headers pour le téléchargement

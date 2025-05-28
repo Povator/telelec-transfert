@@ -141,6 +141,10 @@ main {
 /* Style pour les cellules spécifiques */
 td[title] {
     cursor: help;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Style pour le statut de téléchargement */
@@ -252,18 +256,65 @@ td:nth-child(5) {
     border-radius: 4px;
 }
 
-/* Style responsive pour les petits écrans */
-@media screen and (max-width: 1200px) {
+/* Styles pour les logs */
+.logs-container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin: 20px;
+    overflow-x: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 12px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+.admin-table th {
+    background-color: #ED501C;
+    color: white;
+    font-weight: 600;
+}
+
+.log-entry {
+    transition: background-color 0.2s ease;
+}
+
+.log-entry:hover {
+    background-color: #f8f9fa;
+}
+
+.log-error {
+    background-color: #fff3f3;
+}
+
+.log-error td {
+    color: #dc3545;
+}
+
+/* Responsive design */
+@media screen and (max-width: 768px) {
+    .logs-container {
+        margin: 10px;
+        padding: 10px;
+    }
+
     .admin-table {
         font-size: 12px;
     }
-    
-    .admin-table td, .admin-table th {
+
+    .admin-table th,
+    .admin-table td {
         padding: 8px;
-    }
-    
-    .admin-table button {
-        padding: 4px 8px;
-        font-size: 11px;
     }
 }

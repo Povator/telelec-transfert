@@ -17,7 +17,15 @@ try {
     $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    $sql = "SELECT * FROM download_history WHERE file_id = ? ORDER BY download_time DESC";
+    // Modifier la requête pour inclure la ville
+    $sql = "SELECT 
+                download_time,
+                download_ip,
+                user_agent,
+                city
+            FROM download_history 
+            WHERE file_id = ? 
+            ORDER BY download_time DESC";
     $stmt = $conn->prepare($sql);
     $stmt->execute([$_GET['file_id']]);
     $history = $stmt->fetchAll(PDO::FETCH_ASSOC);

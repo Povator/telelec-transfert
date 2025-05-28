@@ -28,12 +28,6 @@ session_start();
                 <p>Une interface intuitive pour faciliter vos transferts de fichiers.</p>
             </div>
 
-            <div class="feature-card">
-                <h3>💬 Support Réactif</h3>
-                <p>Pour toute question, notre équipe est à votre disposition.</p>
-            </div>
-        </div>
-
         <div class="file-limit">
             <p>📁 Limite de transfert : 50 Go maximum par fichier</p>
         </div>

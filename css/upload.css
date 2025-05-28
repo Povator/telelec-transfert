@@ -45,13 +45,32 @@ h2 {
 
 #fileInfo {
     margin: 1rem 0;
-    padding: 1rem;
+    padding: 1rem 1.5rem;
     background-color: #e8f5e9;
     border-radius: 10px;
     text-align: center;
     font-size: 1.1rem;
     color: #2e7d32;
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.remove-file {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.remove-file:hover {
+    background-color: #c0392b;
+    transform: scale(1.05);
 }
 
 #uploadProgress {
@@ -107,29 +126,38 @@ button[type="submit"]:hover {
 }
 
 #uploadResult {
-    text-align: center;
-    margin: 2rem 0;
+    margin: 20px 0;
+    padding: 15px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 #uploadResult h3 {
-    color: #31353B;
-    margin-bottom: 1rem;
+    color: #2ecc71;
+    margin-bottom: 15px;
 }
 
 #uploadResult p {
-    color: #666;
-    margin-bottom: 0.5rem;
+    margin: 8px 0;
+    color: #2c3e50;
+    font-size: 14px;
+}
+
+#uploadResult p:nth-child(3) {  /* Pour le code A2F */
+    font-weight: bold;
+    color: #e74c3c;
 }
 
 #uploadResult a {
-    color: #ED501C;
+    display: inline-block;
+    margin-top: 15px;
+    color: #3498db;
     text-decoration: none;
-    font-weight: 600;
-    transition: color 0.3s ease;
 }
 
 #uploadResult a:hover {
-    color: #d64615;
+    text-decoration: underline;
 }
 
 @media (max-width: 768px) {

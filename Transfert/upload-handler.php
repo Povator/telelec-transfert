@@ -22,19 +22,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $originalName = $_FILES["fileToUpload"]["name"];
     $safeName = sanitizeFilename($originalName);
-
     $fileInfo = pathinfo($safeName);
     $baseName = $fileInfo['filename'];
     $extension = isset($fileInfo['extension']) ? '.' . $fileInfo['extension'] : '';
 
-    $uniqueId = uniqid('', true);
-$finalName = $baseName . '_' . $uniqueId . $extension;
-$targetFile = $targetDir . $finalName;
+    // D'abord essayer avec le nom original
+    $finalName = $baseName . $extension;
+    $targetFile = $targetDir . $finalName;
 
+    // Si le fichier existe déjà, alors utiliser un compteur
+    $counter = 1;
     while (file_exists($targetFile)) {
-        $counter++;
         $finalName = $baseName . '_' . $counter . $extension;
         $targetFile = $targetDir . $finalName;
+        $counter++;
     }
 
     if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $targetFile)) {

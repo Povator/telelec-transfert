@@ -1,19 +1,22 @@
+<?php
+session_start(); // Déplacer session_start() tout en haut du fichier
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Transfert TeLelec</title>
-    <link rel="stylesheet" href="/style.css" />
-    <link rel="stylesheet" href="/css/upload.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Envoyer un fichier - TeLelec</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/css/upload.css">
 </head>
 <body>
     <?php include '../Present/header.php'; ?>
-
+    
     <main>
-        <h2>Glissez un fichier ici ou cliquez pour le sélectionner</h2>
+        <h1>Envoyer un fichier</h1>
 
-        <form id="uploadForm">
+        <form id="uploadForm" method="post" enctype="multipart/form-data">
             <div id="dropZone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)">
                 <p>Déposez un fichier ici</p>
                 <input type="file" name="fileToUpload" id="fileToUpload" hidden />

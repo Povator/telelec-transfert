@@ -8,6 +8,8 @@ const speedText = document.querySelector('.speed-text');
 const timeText = document.querySelector('.time-text');
 const uploadResult = document.getElementById('uploadResult');
 
+let selectedFile = null;
+
 // Empêcher le comportement par défaut pour le drag & drop
 ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
     dropZone.addEventListener(eventName, preventDefaults);
@@ -21,37 +23,52 @@ function preventDefaults(e) {
 // Gérer l'apparence de la zone de drop
 dropZone.addEventListener('dragenter', () => dropZone.classList.add('dragover'));
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', handleDrop);
+dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    
+    const file = e.dataTransfer.files[0];
+    handleFile(file);
+});
 dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', () => updateFileInfo(fileInput.files));
-
-function updateFileInfo(files) {
-    if (files.length > 0) {
-        const file = files[0];
-        fileInfo.style.display = 'block';
-        fileInfo.innerHTML = `Fichier sélectionné: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
-        dropZone.style.borderColor = '#4CAF50';
-    } else {
-        fileInfo.style.display = 'none';
-        dropZone.style.borderColor = '#ED501C';
+fileInput.addEventListener('change', function(e) {
+    if (this.files.length > 0) {
+        handleFile(this.files[0]);
     }
+});
+
+function handleFile(file) {
+    selectedFile = file;
+    const fileInfo = document.getElementById('fileInfo');
+    fileInfo.innerHTML = `
+        <div>
+            <strong>Fichier sélectionné :</strong> ${file.name} (${formatFileSize(file.size)})
+        </div>
+        <button type="button" class="remove-file" onclick="removeFile()">
+            Retirer le fichier
+        </button>
+    `;
+    fileInfo.style.display = 'flex';
+    document.querySelector('button[type="submit"]').disabled = false;
 }
 
-function handleDrop(e) {
-    const files = e.dataTransfer.files;
-    fileInput.files = files;
-    updateFileInfo(files);
+function removeFile() {
+    selectedFile = null;
+    const fileInfo = document.getElementById('fileInfo');
+    fileInfo.style.display = 'none';
+    fileInfo.innerHTML = '';
+    document.querySelector('button[type="submit"]').disabled = true;
 }
 
 form.addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    if (!fileInput.files.length) {
+    if (!selectedFile) {
         alert('Veuillez sélectionner un fichier');
         return;
     }
 
-    const file = fileInput.files[0];
+    const file = selectedFile;
     const formData = new FormData();
     formData.append('fileToUpload', file);
 
@@ -118,7 +135,9 @@ form.addEventListener('submit', async function(e) {
                 uploadResult.innerHTML = `
                     <h3>✅ Fichier bien envoyé : ${result.original}</h3>
                     <p>Code de téléchargement : ${finalData.code}</p>
-                    <a href="${finalData.url}" target="_blank">${finalData.url}</a>
+                    <p>Code A2F : ${finalData.auth_code}</p>
+                    <p>Date d'expiration du code A2F : ${finalData.expiration_date}</p>
+                    <a href="${finalData.url}" target="_blank">Lien de téléchargement</a>
                 `;
             } else {
                 throw new Error('Erreur lors de la finalisation');
@@ -132,3 +151,9 @@ form.addEventListener('submit', async function(e) {
         progressBar.style.backgroundColor = "#e74c3c";
     }
 });
+
+function formatFileSize(size) {
+    const i = Math.floor(Math.log(size) / Math.log(1024));
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    return (size / Math.pow(1024, i)).toFixed(2) + ' ' + units[i];
+}

@@ -33,15 +33,23 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                 $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
                 $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-                // Modifier la requête SQL pour inclure les informations A2F
+                // Modifier la requête SQL pour inclure les informations du premier téléchargement
                 $sql = "SELECT f.*, 
                         (SELECT COUNT(*) FROM download_history WHERE file_id = f.id) as download_count,
                         dac.auth_code,
-                        dac.expiration_date
+                        dac.expiration_date,
+                        dh.download_time,
+                        dh.download_ip,
+                        dh.user_agent,
+                        dh.city,
+                        f.upload_ip as author_ip,
+                        f.upload_city as author_city  /* Modification ici */
                         FROM files f
                         LEFT JOIN download_auth_codes dac ON f.id = dac.file_id 
-                        AND dac.expiration_date > NOW() 
-                        AND dac.used = FALSE";
+                            AND dac.expiration_date > NOW() 
+                            AND dac.used = FALSE
+                        LEFT JOIN download_history dh ON f.id = dh.file_id
+                        ORDER BY f.id DESC";
                 $stmt = $conn->prepare($sql);
                 $stmt->execute();
                 $files = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -53,6 +61,8 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                             <th>ID</th>
                             <th>Nom du fichier</th>
                             <th>Date d'envoi</th>
+                            <th>IP Auteur</th>
+                            <th>Ville Auteur</th>
                             <th>Code téléchargement</th>
                             <th>Code A2F</th>
                             <th>Expiration A2F</th>
@@ -67,27 +77,27 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
 
                     // Remplacer la boucle foreach par :
                     foreach ($files as $file) {
-                        echo "<tr data-id='" . htmlspecialchars($file['id']) . "'>";
-                        echo "<td>" . htmlspecialchars($file['id']) . "</td>";
-                        echo "<td title='" . htmlspecialchars($file['filename']) . "' class='truncate'>" . htmlspecialchars($file['filename']) . "</td>";
-                        $date = new DateTime($file['upload_date']);
-                        echo "<td>" . $date->format('d/m/Y H:i') . "</td>";
-                        echo "<td>" . htmlspecialchars($file['download_code']) . " <a href='/download.php?code=" . htmlspecialchars($file['download_code']) . "' target='_blank' class='download-link'>🔗</a></td>";
-                        echo "<td>" . ($file['auth_code'] ?? 'Code expiré') . "</td>";
+                        echo "<tr data-id='" . htmlspecialchars((string)$file['id']) . "'>";
+                        echo "<td>" . htmlspecialchars((string)$file['id']) . "</td>";
+                        echo "<td title='" . htmlspecialchars((string)$file['filename']) . "' class='truncate'>" . htmlspecialchars((string)$file['filename']) . "</td>";
+                        echo "<td>" . (new DateTime($file['upload_date']))->format('d/m/Y H:i') . "</td>";
+                        echo "<td>" . htmlspecialchars((string)$file['author_ip']) . "</td>";
+                        echo "<td>" . htmlspecialchars((string)($file['author_city'] ?? 'Non renseigné')) . "</td>";
+                        echo "<td>" . htmlspecialchars((string)$file['download_code']) . " <a href='/download.php?code=" . htmlspecialchars((string)$file['download_code']) . "' target='_blank' class='download-link'>🔗</a></td>";
+                        echo "<td>" . htmlspecialchars((string)($file['auth_code'] ?? 'Code expiré')) . "</td>";
                         echo "<td>" . ($file['expiration_date'] ? (new DateTime($file['expiration_date']))->format('d/m/Y H:i') : '-') . "</td>";
                         echo "<td>" . ($file['downloaded'] ? 'Oui' : 'Non') . "</td>";
-                        echo "<td>" . htmlspecialchars($file['download_ip'] ?? 'Non téléchargé') . "</td>";
-                        echo "<td class='truncate' title='" . htmlspecialchars($file['user_agent'] ?? 'Non téléchargé') . "'>" . htmlspecialchars($file['user_agent'] ?? 'Non téléchargé') . "</td>";
+                        echo "<td>" . htmlspecialchars((string)($file['download_ip'] ?? 'Non téléchargé')) . "</td>";
+                        echo "<td class='truncate' title='" . htmlspecialchars((string)($file['user_agent'] ?? 'Non téléchargé')) . "'>" . htmlspecialchars((string)($file['user_agent'] ?? 'Non téléchargé')) . "</td>";
                         $download_time = $file['download_time'] ? (new DateTime($file['download_time']))->format('d/m/Y H:i') : 'Non téléchargé';
                         echo "<td>" . $download_time . "</td>";
-                        echo "<td class='truncate'>" . htmlspecialchars($file['city'] ?? 'Non renseigné') . "</td>";
-                        echo "<td>" . $file['download_count'] . " fois</td>";
-                        echo "<!-- DEBUG ACTIONS -->";
+                        echo "<td class='truncate'>" . htmlspecialchars((string)($file['city'] ?? 'Non renseigné')) . "</td>";
+                        echo "<td>" . (int)$file['download_count'] . " fois</td>";
                         echo "<td>
-                                <button onclick='showHistory(" . $file['id'] . ")'>Voir historique</button>
-                                <button class='edit-btn' onclick='editFile(" . htmlspecialchars($file['id']) . ")'>Modifier</button>
-                                <button onclick='generateNewAuthCode(" . $file['id'] . ")'>Générer code A2F</button>
-                                <button onclick='deleteTransfer(" . $file['id'] . ")' class='delete-btn'>Supprimer</button>
+                                <button onclick='showHistory(" . (int)$file['id'] . ")'>Voir historique</button>
+                                <button class='edit-btn' onclick='editFile(" . (int)$file['id'] . ")'>Modifier</button>
+                                <button onclick='generateNewAuthCode(" . (int)$file['id'] . ")'>Générer code A2F</button>
+                                <button onclick='deleteTransfer(" . (int)$file['id'] . ")' class='delete-btn'>Supprimer</button>
                             </td>";
                         echo "</tr>";
                     }
