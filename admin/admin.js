@@ -52,16 +52,24 @@ editForm.onsubmit = function(e) {
 
 function refreshDatabase() {
     if (confirm('Voulez-vous vraiment nettoyer la base de données ?')) {
-        fetch('/clean_database.php')
-            .then(response => response.text())
-            .then(result => {
-                alert(result);
-                window.location.href = '/admin/dashboard.php';
+        fetch('/clean_database.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'refresh_database'
             })
-            .catch(error => {
-                console.error('Erreur:', error);
-                alert('Erreur lors du nettoyage de la base de données');
-            });
+        })
+        .then(response => response.text())
+        .then(result => {
+            alert(result);
+            window.location.href = '/admin/dashboard.php';
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors du nettoyage de la base de données');
+        });
     }
 }
 

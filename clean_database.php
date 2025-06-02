@@ -18,17 +18,22 @@ try {
     $files = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $deletedCount = 0;
-    
+
     foreach ($files as $file) {
         $filepath = __DIR__ . '/uploads/' . $file['filename'];
         if (!file_exists($filepath)) {
-            $deleteSql = "DELETE FROM files WHERE id = ?";
-            $deleteStmt = $conn->prepare($deleteSql);
-            $deleteStmt->execute([$file['id']]);
+            // Supprimer d'abord dans download_auth_codes
+            $conn->prepare("DELETE FROM download_auth_codes WHERE file_id = ?")->execute([$file['id']]);
+
+            // Supprimer aussi dans download_history
+            $conn->prepare("DELETE FROM download_history WHERE file_id = ?")->execute([$file['id']]);
+
+            // Puis supprimer dans files
+            $conn->prepare("DELETE FROM files WHERE id = ?")->execute([$file['id']]);
             $deletedCount++;
         }
     }
-    
+
     echo "Nettoyage terminé. $deletedCount entrées supprimées.";
 
 } catch (PDOException $e) {

@@ -29,7 +29,8 @@ try {
     $stats['online_users'] = $stmt->fetchColumn();
 
     // Uploads aujourd'hui
-    $sql = "SELECT COUNT(*) FROM file_logs WHERE action_type = 'upload_complete' AND DATE(action_date) = CURDATE()";
+    $sql = "SELECT COUNT(*) FROM file_logs WHERE action_type = 'upload_complete' AND action_date >= CURDATE()";
+
     $stmt = $conn->query($sql);
     $stats['total_uploads_today'] = $stmt->fetchColumn();
 
@@ -54,11 +55,12 @@ try {
 
     // Logs système
     $sql = "SELECT l.*, f.filename, 
-            CONVERT_TZ(l.action_date, 'UTC', 'Europe/Paris') as action_date 
-            FROM file_logs l 
-            LEFT JOIN files f ON l.file_id = f.id 
-            ORDER BY l.action_date DESC 
-            LIMIT 100";
+        CONVERT_TZ(l.action_date, 'UTC', 'Europe/Paris') as action_date, 
+        l.details 
+        FROM file_logs l 
+        LEFT JOIN files f ON l.file_id = f.id 
+        ORDER BY l.action_date DESC 
+        LIMIT 100";
     $stmt = $conn->prepare($sql);
     $stmt->execute();
     $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -150,7 +152,7 @@ try {
                 </td>
                 <td><?= htmlspecialchars($log['action_type']) ?></td>
                 <td><?= htmlspecialchars($log['user_ip']) ?></td>
-                <td><?php echo "<td>" . (isset($log['city']) ? htmlspecialchars($log['city']) : 'N/A') . "</td>"; ?></td>
+                <td><?= htmlspecialchars($log['city'] ?? 'Non renseigné') ?></td>
                 <td><?= htmlspecialchars($log['status']) ?></td>
                 <td><?= htmlspecialchars($log['details']) ?></td>
             </tr>

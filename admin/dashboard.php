@@ -81,7 +81,7 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                         echo "<td>" . htmlspecialchars((string)$file['id']) . "</td>";
                         echo "<td title='" . htmlspecialchars((string)$file['filename']) . "' class='truncate'>" . htmlspecialchars((string)$file['filename']) . "</td>";
                         echo "<td>" . (new DateTime($file['upload_date']))->format('d/m/Y H:i') . "</td>";
-                        echo "<td>" . htmlspecialchars((string)$file['author_ip']) . "</td>";
+                        echo "<td>" . htmlspecialchars((string)$file['upload_ip']) . "</td>";
                         echo "<td>" . htmlspecialchars((string)($file['author_city'] ?? 'Non renseigné')) . "</td>";
                         echo "<td>" . htmlspecialchars((string)$file['download_code']) . " <a href='/download.php?code=" . htmlspecialchars((string)$file['download_code']) . "' target='_blank' class='download-link'>🔗</a></td>";
                         echo "<td>" . htmlspecialchars((string)($file['auth_code'] ?? 'Code expiré')) . "</td>";
@@ -91,8 +91,7 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                         echo "<td class='truncate' title='" . htmlspecialchars((string)($file['user_agent'] ?? 'Non téléchargé')) . "'>" . htmlspecialchars((string)($file['user_agent'] ?? 'Non téléchargé')) . "</td>";
                         $download_time = $file['download_time'] ? (new DateTime($file['download_time']))->format('d/m/Y H:i') : 'Non téléchargé';
                         echo "<td>" . $download_time . "</td>";
-                        echo "<td class='truncate'>" . htmlspecialchars((string)($file['city'] ?? 'Non renseigné')) . "</td>";
-                        echo "<td>" . (int)$file['download_count'] . " fois</td>";
+                        echo "<td class='truncate'>" . htmlspecialchars((string)($file['city'] ?? 'Non renseigné')) . "</td>";                        echo "<td>" . (int)$file['download_count'] . " fois</td>";
                         echo "<td>
                                 <button onclick='showHistory(" . (int)$file['id'] . ")'>Voir historique</button>
                                 <button class='edit-btn' onclick='editFile(" . (int)$file['id'] . ")'>Modifier</button>

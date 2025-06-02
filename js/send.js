@@ -78,41 +78,48 @@ form.addEventListener('submit', async function(e) {
     let lastLoaded = 0;
 
     try {
-        const response = await fetch('upload-handler.php', {
-            method: 'POST',
-            body: formData,
-            xhr: function() {
-                const xhr = new XMLHttpRequest();
-                xhr.upload.addEventListener('progress', function(e) {
-                    if (e.lengthComputable) {
-                        // Calcul de la progression
-                        const percentComplete = ((e.loaded / e.total) * 100).toFixed(2);
-                        progressBar.style.width = percentComplete + '%';
-                        progressText.textContent = percentComplete + '%';
+        // Utiliser XMLHttpRequest au lieu de fetch pour avoir accès aux événements de progression
+        const result = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = ((e.loaded / e.total) * 100).toFixed(2);
+                    progressBar.style.width = percentComplete + '%';
+                    progressText.textContent = percentComplete + '%';
 
-                        // Calcul de la vitesse
-                        const currentTime = Date.now();
-                        const elapsedTime = (currentTime - startTime) / 1000; // en secondes
-                        const bytesPerSecond = e.loaded / elapsedTime;
-                        const speedMBps = (bytesPerSecond / (1024 * 1024)).toFixed(2);
-                        speedText.textContent = `Vitesse : ${speedMBps} MB/s`;
+                    const currentTime = Date.now();
+                    const elapsedTime = (currentTime - startTime) / 1000;
+                    const bytesPerSecond = e.loaded / elapsedTime;
+                    const speedMBps = (bytesPerSecond / (1024 * 1024)).toFixed(2);
+                    speedText.textContent = `Vitesse : ${speedMBps} MB/s`;
 
-                        // Calcul du temps restant
-                        const remainingBytes = e.total - e.loaded;
-                        const remainingTime = remainingBytes / bytesPerSecond;
-                        const minutes = Math.floor(remainingTime / 60);
-                        const seconds = Math.floor(remainingTime % 60);
-                        timeText.textContent = `Temps restant : ${minutes}:${seconds.toString().padStart(2, '0')}`;
+                    const remainingBytes = e.total - e.loaded;
+                    const remainingTime = remainingBytes / bytesPerSecond;
+                    const minutes = Math.floor(remainingTime / 60);
+                    const seconds = Math.floor(remainingTime % 60);
+                    timeText.textContent = `Temps restant : ${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }
+            });
 
-                        // Mise à jour pour le prochain calcul
-                        lastLoaded = e.loaded;
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        resolve(response);
+                    } catch (e) {
+                        reject(new Error('Réponse invalide du serveur'));
                     }
-                });
-                return xhr;
-            }
-        });
+                } else {
+                    reject(new Error(`Erreur serveur: ${xhr.status}`));
+                }
+            };
 
-        const result = await response.json();
+            xhr.onerror = () => reject(new Error('Erreur réseau'));
+            
+            xhr.open('POST', 'upload-handler.php', true);
+            xhr.send(formData);
+        });
 
         if (result.status === 'success') {
             uploadResult.innerHTML = `
