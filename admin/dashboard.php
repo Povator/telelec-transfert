@@ -13,11 +13,16 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
     <title>Transfert Tetelec</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="admin.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/flavicon/favicon.png" type="image/png">
+    <link rel="shortcut icon" href="/flavicon/favicon.png" type="image/png">
+    
     <script src="/script.js" defer></script>
     <script src="admin.js" defer></script>
 </head>
 <body>
-    <?php include '../Present/header.php'; ?>
+    <?php include '../includes/header.php'; ?>
     
     <main>
         
@@ -42,8 +47,7 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                         dh.download_ip,
                         dh.user_agent,
                         dh.city,
-                        f.upload_ip as author_ip,
-                        f.upload_city as author_city  /* Modification ici */
+                        f.upload_ip as author_ip  /* Ajout ici */
                         FROM files f
                         LEFT JOIN download_auth_codes dac ON f.id = dac.file_id 
                             AND dac.expiration_date > NOW() 
@@ -142,6 +146,6 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
         </div>
     </div>
             
-    <?php include '../Present/footer.php'; ?>
+    <?php include '../includes/footer.php'; ?>
 </body>
 </html>

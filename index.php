@@ -9,10 +9,15 @@ session_start();
     <title>Transfert Tetelec</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="/css/index.css">
-    <script src="/script.js" defer></script>
+    
+    <!-- Favicon avec chemin absolu -->
+    <link rel="icon" href="/flavicon/favicon.png" type="image/png">
+    <link rel="shortcut icon" href="/flavicon/favicon.png" type="image/png">
+    
+    <script src="/js/script.js" defer></script>
 </head>
 <body>
-    <?php include './Present/header.php'; ?>
+    <?php include './includes/header.php'; ?>
     
     <main class="main-container">
         <h1 class="main-title">Bienvenue sur Telelec Transfert</h1>
@@ -35,6 +40,6 @@ session_start();
         <a href="/Transfert/send.php" class="cta-button">Commencer un transfert →</a>
     </main>
 
-    <?php include './Present/footer.php'; ?>
+    <?php include './includes/footer.php'; ?>
 </body>
 </html>

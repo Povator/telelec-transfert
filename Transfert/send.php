@@ -9,9 +9,13 @@ session_start(); // Déplacer session_start() tout en haut du fichier
     <title>Envoyer un fichier - TeLelec</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="/css/upload.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/flavicon/favicon.png" type="image/png">
+    <link rel="shortcut icon" href="/flavicon/favicon.png" type="image/png">
 </head>
 <body>
-    <?php include '../Present/header.php'; ?>
+    <?php include '../includes/header.php'; ?>
     
     <main>
         <h1>Envoyer un fichier</h1>
@@ -39,7 +43,7 @@ session_start(); // Déplacer session_start() tout en haut du fichier
         </form>
     </main>
 
-    <?php include '../Present/footer.php'; ?>
+    <?php include '../includes/footer.php'; ?>
     <script src="/js/send.js"></script>
 </body>
 </html>

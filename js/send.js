@@ -106,15 +106,19 @@ form.addEventListener('submit', async function(e) {
                 if (xhr.status === 200) {
                     try {
                         const response = JSON.parse(xhr.responseText);
-                        resolve(response);
+                        if (response.status === 'success') {
+                            resolve(response);
+                        } else {
+                            reject(new Error(response.message || 'Erreur lors de l\'upload'));
+                        }
                     } catch (e) {
-                        reject(new Error('Réponse invalide du serveur'));
+                        reject(new Error('Réponse du serveur invalide'));
                     }
                 } else {
-                    reject(new Error(`Erreur serveur: ${xhr.status}`));
+                    reject(new Error('Problème de connexion au serveur'));
                 }
             };
-
+            
             xhr.onerror = () => reject(new Error('Erreur réseau'));
             
             xhr.open('POST', 'upload-handler.php', true);
@@ -122,12 +126,14 @@ form.addEventListener('submit', async function(e) {
         });
 
         if (result.status === 'success') {
+            // Afficher un message temporaire pendant la finalisation
             uploadResult.innerHTML = `
-                <h3>⏳ Traitement du fichier en cours...</h3>
-                <p>Veuillez patienter quelques instants</p>
+                <h3>⏳ Finalisation en cours...</h3>
+                <p>Veuillez patienter pendant la génération des codes de sécurité</p>
             `;
 
-            const finalizeResponse = await fetch('finalize-upload.php', {
+            // Appel de finalize-upload.php pour générer le code A2F
+            const finalizeResponse = await fetch('Transfert/finalize-upload.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
@@ -135,19 +141,69 @@ form.addEventListener('submit', async function(e) {
                 body: `filename=${encodeURIComponent(result.filename)}`
             });
 
+            if (!finalizeResponse.ok) {
+                throw new Error('Erreur lors de la finalisation');
+            }
+
             const finalData = await finalizeResponse.json();
+            console.log("Réponse de finalisation:", finalData); // Débogage
 
             if (finalData.success) {
                 progressBar.style.backgroundColor = "#4CAF50";
                 uploadResult.innerHTML = `
-                    <h3>✅ Fichier bien envoyé : ${result.original}</h3>
-                    <p>Code de téléchargement : ${finalData.code}</p>
-                    <p>Code A2F : ${finalData.auth_code}</p>
-                    <p>Date d'expiration du code A2F : ${finalData.expiration_date}</p>
-                    <a href="${finalData.url}" target="_blank">Lien de téléchargement</a>
+                    <div class="upload-success">
+                        <h3>✅ Transfert réussi!</h3>
+                        
+                        <div class="file-details">
+                            <p><strong>📄 Fichier :</strong> ${result.original}</p>
+                            <p><strong>📦 Taille :</strong> ${formatFileSize(selectedFile.size)}</p>
+                            <p><strong>📆 Date d'envoi :</strong> ${new Date().toLocaleString()}</p>
+                        </div>
+
+                        <div class="download-info">
+                            <div class="info-block">
+                                <div class="info-label">
+                                    <strong>🔑 Code de téléchargement :</strong>
+                                    <button onclick="copyToClipboard('${finalData.code}')" class="copy-btn" title="Copier">📋</button>
+                                </div>
+                                <div class="info-value">${finalData.code}</div>
+                            </div>
+                            
+                            <div class="info-block">
+                                <div class="info-label">
+                                    <strong>🔒 Code A2F :</strong>
+                                    <button onclick="copyToClipboard('${finalData.auth_code}')" class="copy-btn" title="Copier">📋</button>
+                                </div>
+                                <div class="info-value code-a2f">${finalData.auth_code}</div>
+                            </div>
+                            
+                            <div class="info-block">
+                                <strong>⏱️ Expiration :</strong> ${new Date(finalData.expiration_date).toLocaleString()}
+                            </div>
+                        </div>
+
+                        <div class="download-link-container">
+                            <a href="${finalData.url}" target="_blank" class="download-btn">
+                                <span>🔗 Lien de téléchargement</span>
+                            </a>
+                        </div>
+
+                        <div class="share-instructions">
+                            <p>📱 <strong>Comment partager :</strong> Envoyez le lien de téléchargement et le code A2F au destinataire via des canaux différents pour plus de sécurité.</p>
+                        </div>
+                    </div>
                 `;
+
+                // Ajouter la fonction pour copier dans le presse-papier
+                window.copyToClipboard = function(text) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        alert('Copié dans le presse-papier !');
+                    }).catch(err => {
+                        console.error('Erreur lors de la copie :', err);
+                    });
+                };
             } else {
-                throw new Error('Erreur lors de la finalisation');
+                throw new Error(finalData.error || 'Erreur lors de la finalisation');
             }
         } else {
             throw new Error(result.message || 'Erreur lors de l\'upload');

@@ -37,43 +37,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Début de la transaction
         $pdo->beginTransaction();
 
-        // Insertion du fichier
-        $stmt = $pdo->prepare("INSERT INTO files (filename, download_code, company) VALUES (?, ?, 'TeLelec')");
-        $logger = new FileLogger($pdo);
-    
-        if ($stmt->execute([$filename, $downloadCode])) {
-            $fileId = $pdo->lastInsertId();
-            
-            // Log de la finalisation de l'upload
+        // 1. Vérifier si le fichier existe et récupérer son ID
+        $findStmt = $pdo->prepare("SELECT id FROM files WHERE filename = ?");
+        $findStmt->execute([$filename]);
+        $fileRow = $findStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$fileRow) {
+            throw new Exception("Fichier non trouvé dans la base de données");
+        }
+        
+        $fileId = $fileRow['id'];
+        
+        // 2. Mettre à jour le code de téléchargement
+        $updateStmt = $pdo->prepare("UPDATE files SET download_code = ? WHERE id = ?");
+        $updateStmt->execute([$downloadCode, $fileId]);
+        
+        // 3. Désactiver les anciens codes A2F pour ce fichier
+        $disableOldCodes = $pdo->prepare("UPDATE download_auth_codes SET used = TRUE WHERE file_id = ?");
+        $disableOldCodes->execute([$fileId]);
+        
+        // 4. Insérer le nouveau code A2F
+        $authSql = "INSERT INTO download_auth_codes (file_id, auth_code, expiration_date, used) VALUES (?, ?, ?, FALSE)";
+        $authStmt = $pdo->prepare($authSql);
+        $authStmt->execute([$fileId, $authCode, $expirationDate]);
+        
+        // 5. Logger les actions
+        if (class_exists('FileLogger')) {
+            $logger = new FileLogger($pdo);
             $logger->log($fileId, 'upload_complete', 'success', 
                 "Upload finalisé - Fichier: {$filename}, Code: {$downloadCode}");
             
-            // Log de la génération du code A2F
             $logger->log($fileId, 'auth_generate', 'success', 
                 "Code A2F généré - Code: {$authCode}, Expiration: {$expirationDate}");
-            
-            // Insertion du code A2F
-            $authSql = "INSERT INTO download_auth_codes (file_id, auth_code, expiration_date) VALUES (?, ?, ?)";
-            $authStmt = $pdo->prepare($authSql);
-            $authStmt->execute([$fileId, $authCode, $expirationDate]);
-
-            $pdo->commit();
-
-            echo json_encode([
-                'success' => true,
-                'code' => $downloadCode,
-                'auth_code' => $authCode,
-                'expiration_date' => $expirationDate,
-                'url' => "/download.php?code=" . $downloadCode
-            ]);
         }
+
+        // 6. Valider la transaction
+        $pdo->commit();
+
+        // 7. Renvoyer les données au client
+        echo json_encode([
+            'success' => true,
+            'code' => $downloadCode,
+            'auth_code' => $authCode,
+            'expiration_date' => $expirationDate,
+            'url' => "/download.php?code=" . $downloadCode
+        ]);
+        
     } catch (PDOException $e) {
         if (isset($pdo)) {
             $pdo->rollBack();
         }
+        error_log("Erreur SQL dans finalize-upload.php: " . $e->getMessage());
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
     } catch (Exception $e) {
-        $logger->log(null, 'error', 'error', 'Erreur finalisation: ' . $e->getMessage());
+        if (isset($pdo)) {
+            $pdo->rollBack();
+        }
+        error_log("Erreur générale dans finalize-upload.php: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
     }
+} else {
+    echo json_encode(['success' => false, 'error' => 'Méthode non autorisée']);
 }
 ?>

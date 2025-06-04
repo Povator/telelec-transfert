@@ -132,7 +132,7 @@ try {
         </style>
     </head>
     <body>
-        <?php include './Present/header.php'; ?>
+        <?php include './includes/header.php'; ?>
         
         <main>
             <div class="auth-container">
@@ -151,7 +151,7 @@ try {
             </div>
         </main>
         
-        <?php include './Present/footer.php'; ?>
+        <?php include './includes/footer.php'; ?>
     </body>
     </html>
     <?php

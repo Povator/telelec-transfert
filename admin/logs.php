@@ -78,9 +78,13 @@ try {
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="admin.css">
     <meta http-equiv="refresh" content="30">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/flavicon/favicon.png" type="image/png">
+    <link rel="shortcut icon" href="/flavicon/favicon.png" type="image/png">
 </head>
 <body>
-    <?php include '../Present/header.php'; ?>
+    <?php include '../includes/header.php'; ?>
     
     <main>
         <h1>Surveillance système</h1>

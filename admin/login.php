@@ -1,8 +1,24 @@
 <?php
+/**
+ * Script de connexion pour l'interface administrateur
+ * 
+ * @author  TeleLec
+ * @version 1.0
+ */
 session_start();
+if (isset($_SESSION['admin']) && $_SESSION['admin'] === true) {
+    header('Location: /admin/dashboard.php');
+    exit;
+}
 
-$config = require('/secure/config.php');// ← adapte ce chemin si besoin
+/** @var array Configuration contenant les identifiants admin */
+$config = require(__DIR__ . '/../secure/config.php');
 
+
+/**
+ * Établissement de la connexion à la base de données
+ * @var PDO $conn Instance de connexion PDO
+ */
 try {
     $conn = new PDO("mysql:host=db;dbname=telelec;charset=utf8", 'telelecuser', 'userpassword');
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -10,35 +26,54 @@ try {
     die("Erreur de connexion : " . $e->getMessage());
 }
 
+/** @var string $stored_username Nom d'utilisateur administrateur stocké */
 $stored_username = $config['admin_username'];
+/** @var string $stored_password_hash Hash du mot de passe administrateur */
 $stored_password_hash = $config['admin_password_hash'];
 
+/**
+ * Traitement de la soumission du formulaire
+ * Vérifie les identifiants et crée une session si valides
+ */
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
 
+
     if ($username === $stored_username && password_verify($password, $stored_password_hash)) {
         $_SESSION['admin'] = true;
+
         header("Location: /admin/dashboard.php");
-        $sql = "INSERT INTO sessions (id, user_id, last_activity, ip_address, user_agent) 
-        VALUES (?, ?, NOW(), ?, ?)";
-        $stmt = $conn->prepare($sql);
-        $stmt->execute([
-            session_id(),
-            'admin', // ou 'admin-username' si tu préfères
-            $_SERVER['REMOTE_ADDR'],
-            $_SERVER['HTTP_USER_AGENT']
-        ]);
+
+        try {
+            $sql = "INSERT INTO sessions (id, user_id, last_activity, ip_address, user_agent) 
+            VALUES (?, ?, NOW(), ?, ?)";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute([
+                session_id(),
+                1,
+                $_SERVER['REMOTE_ADDR'],
+                $_SERVER['HTTP_USER_AGENT']
+            ]);
+        } catch (PDOException $e) {
+            error_log("Erreur BDD session: " . $e->getMessage());
+        }
+
         exit;
     } else {
         $error = "Identifiants incorrects";
-        $sql = "INSERT INTO file_logs (action_type, action_date, user_ip, status, details)
-        VALUES ('failed_login', NOW(), ?, 'error', ?)";
-        $stmt = $conn->prepare($sql);
-        $stmt->execute([
-            $_SERVER['REMOTE_ADDR'],
-            'Tentative de connexion échouée avec identifiant : ' . htmlspecialchars($username)
-        ]);
+
+        try {
+            $sql = "INSERT INTO file_logs (action_type, action_date, user_ip, status, details)
+            VALUES ('failed_login', NOW(), ?, 'error', ?)";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute([
+                $_SERVER['REMOTE_ADDR'],
+                'Tentative de connexion échouée avec identifiant : ' . htmlspecialchars($username)
+            ]);
+        } catch (PDOException $e) {
+            error_log("Erreur BDD log: " . $e->getMessage());
+        }
     }
 }
 ?>
@@ -48,7 +83,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Transfert Tetelec</title>
+    <title>Connexion Admin - Transfert Tetelec</title>
     <link rel="stylesheet" href="/style.css">
     <style>
         .login-form {
@@ -76,9 +111,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             margin-bottom: 10px;
         }
     </style>
+    <!-- Favicon -->
+    <link rel="icon" href="/flavicon/favicon.png" type="image/png">
+    <link rel="shortcut icon" href="/flavicon/favicon.png" type="image/png">
 </head>
 <body>
-    <?php include '../Present/header.php'; ?>
+    <?php include '../includes/header.php'; ?>
     
     <main>
         <div class="login-form">
@@ -101,6 +139,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
     </main>
 
-    <?php include '../Present/footer.php'; ?>
+    <?php include '../includes/footer.php'; ?>
 </body>
 </html>
