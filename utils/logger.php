@@ -8,12 +8,16 @@ class FileLogger {
 
     public function log($fileId, $actionType, $status = 'success', $details = '') {
         try {
-            $sql = "INSERT INTO file_logs (file_id, action_type, user_ip, user_agent, city, status, details) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)";
+            // CORRECTION: Définir le fuseau horaire avant toute opération de date
+            date_default_timezone_set('Europe/Paris');
+            
+            $sql = "INSERT INTO file_logs (file_id, action_type, user_ip, user_agent, city, status, details, action_date) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             
             $userIp = $_SERVER['REMOTE_ADDR'];
             $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
             $city = $this->getCity($userIp);
+            $actionDate = date('Y-m-d H:i:s'); // Utiliser PHP au lieu de NOW()
 
             $stmt = $this->conn->prepare($sql);
             return $stmt->execute([
@@ -23,7 +27,8 @@ class FileLogger {
                 $userAgent,
                 $city,
                 $status,
-                $details
+                $details,
+                $actionDate // Ajouter la date générée en PHP
             ]);
         } catch (Exception $e) {
             error_log("Erreur de logging : " . $e->getMessage());

@@ -40,8 +40,10 @@ try {
             $filepath = __DIR__ . '/uploads/' . $file['filename'];
             
             if (file_exists($filepath)) {
+                // CORRECTION: Définir le fuseau horaire
+                date_default_timezone_set('Europe/Paris');
+                
                 // Enregistrer dans l'historique
-                // Fonction pour obtenir la ville à partir de l'IP
                 function getCity($ip) {
                     $apiUrl = "http://ip-api.com/json/" . $ip;
                     $response = @file_get_contents($apiUrl);
@@ -54,13 +56,15 @@ try {
 
                 $userIp = $_SERVER['REMOTE_ADDR'];
                 $city = getCity($userIp);
+                $downloadTime = date('Y-m-d H:i:s'); // Utiliser PHP au lieu de NOW()
 
                 $insertHistorySql = "INSERT INTO download_history 
                     (file_id, download_time, download_ip, user_agent, city) 
-                    VALUES (?, NOW(), ?, ?, ?)";
+                    VALUES (?, ?, ?, ?, ?)";
                 $historyStmt = $conn->prepare($insertHistorySql);
                 $historyStmt->execute([
                     $file['id'],
+                    $downloadTime, // Utiliser la variable PHP
                     $userIp,
                     $_SERVER['HTTP_USER_AGENT'] ?? 'Inconnu',
                     $city

@@ -7,10 +7,11 @@ const progressText = document.querySelector('.progress-text');
 const speedText = document.querySelector('.speed-text');
 const timeText = document.querySelector('.time-text');
 const uploadResult = document.getElementById('uploadResult');
+const cancelBtn = document.getElementById('cancelUploadBtn');
 
 let selectedFile = null;
+let currentUpload = null; // <- Nouveau
 
-// Empêcher le comportement par défaut pour le drag & drop
 ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
     dropZone.addEventListener(eventName, preventDefaults);
 });
@@ -20,13 +21,11 @@ function preventDefaults(e) {
     e.stopPropagation();
 }
 
-// Gérer l'apparence de la zone de drop
 dropZone.addEventListener('dragenter', () => dropZone.classList.add('dragover'));
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop', function(e) {
     e.preventDefault();
     dropZone.classList.remove('dragover');
-    
     const file = e.dataTransfer.files[0];
     handleFile(file);
 });
@@ -39,7 +38,6 @@ fileInput.addEventListener('change', function(e) {
 
 function handleFile(file) {
     selectedFile = file;
-    const fileInfo = document.getElementById('fileInfo');
     fileInfo.innerHTML = `
         <div>
             <strong>Fichier sélectionné :</strong> ${file.name} (${formatFileSize(file.size)})
@@ -54,7 +52,6 @@ function handleFile(file) {
 
 function removeFile() {
     selectedFile = null;
-    const fileInfo = document.getElementById('fileInfo');
     fileInfo.style.display = 'none';
     fileInfo.innerHTML = '';
     document.querySelector('button[type="submit"]').disabled = true;
@@ -62,7 +59,7 @@ function removeFile() {
 
 form.addEventListener('submit', async function(e) {
     e.preventDefault();
-    
+
     if (!selectedFile) {
         alert('Veuillez sélectionner un fichier');
         return;
@@ -73,15 +70,15 @@ form.addEventListener('submit', async function(e) {
     formData.append('fileToUpload', file);
 
     uploadResult.innerHTML = '<h3>⏳ Upload en cours...</h3>';
-    
+    cancelBtn.style.display = 'inline-block'; // 👈 Affiche le bouton
+
     let startTime = Date.now();
-    let lastLoaded = 0;
 
     try {
-        // Utiliser XMLHttpRequest au lieu de fetch pour avoir accès aux événements de progression
         const result = await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
-            
+            currentUpload = xhr; // 👈 Stocke la requête pour pouvoir l'annuler
+
             xhr.upload.addEventListener('progress', function(e) {
                 if (e.lengthComputable) {
                     const percentComplete = ((e.loaded / e.total) * 100).toFixed(2);
@@ -103,6 +100,7 @@ form.addEventListener('submit', async function(e) {
             });
 
             xhr.onload = function() {
+                cancelBtn.style.display = 'none'; // 👈 Cache le bouton après succès
                 if (xhr.status === 200) {
                     try {
                         const response = JSON.parse(xhr.responseText);
@@ -118,22 +116,30 @@ form.addEventListener('submit', async function(e) {
                     reject(new Error('Problème de connexion au serveur'));
                 }
             };
-            
+
             xhr.onerror = () => reject(new Error('Erreur réseau'));
-            
+            xhr.onabort = () => {
+                uploadResult.innerHTML = `<h3>🛑 Upload annulé par l'utilisateur</h3>`;
+                progressBar.style.backgroundColor = "#f39c12";
+                progressBar.style.width = "0%";
+                progressText.textContent = "0%";
+                speedText.textContent = "";
+                timeText.textContent = "";
+                cancelBtn.style.display = 'none';
+                reject(new Error('Upload annulé'));
+            };
+
             xhr.open('POST', 'upload-handler.php', true);
             xhr.send(formData);
         });
 
         if (result.status === 'success') {
-            // Afficher un message temporaire pendant la finalisation
             uploadResult.innerHTML = `
                 <h3>⏳ Finalisation en cours...</h3>
                 <p>Veuillez patienter pendant la génération des codes de sécurité</p>
             `;
 
-            // Appel de finalize-upload.php pour générer le code A2F
-            const finalizeResponse = await fetch('Transfert/finalize-upload.php', {
+            const finalizeResponse = await fetch('finalize-upload.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
@@ -146,20 +152,18 @@ form.addEventListener('submit', async function(e) {
             }
 
             const finalData = await finalizeResponse.json();
-            console.log("Réponse de finalisation:", finalData); // Débogage
+            console.log("Réponse de finalisation:", finalData);
 
             if (finalData.success) {
                 progressBar.style.backgroundColor = "#4CAF50";
                 uploadResult.innerHTML = `
                     <div class="upload-success">
                         <h3>✅ Transfert réussi!</h3>
-                        
                         <div class="file-details">
                             <p><strong>📄 Fichier :</strong> ${result.original}</p>
                             <p><strong>📦 Taille :</strong> ${formatFileSize(selectedFile.size)}</p>
                             <p><strong>📆 Date d'envoi :</strong> ${new Date().toLocaleString()}</p>
                         </div>
-
                         <div class="download-info">
                             <div class="info-block">
                                 <div class="info-label">
@@ -168,7 +172,6 @@ form.addEventListener('submit', async function(e) {
                                 </div>
                                 <div class="info-value">${finalData.code}</div>
                             </div>
-                            
                             <div class="info-block">
                                 <div class="info-label">
                                     <strong>🔒 Code A2F :</strong>
@@ -176,25 +179,20 @@ form.addEventListener('submit', async function(e) {
                                 </div>
                                 <div class="info-value code-a2f">${finalData.auth_code}</div>
                             </div>
-                            
                             <div class="info-block">
                                 <strong>⏱️ Expiration :</strong> ${new Date(finalData.expiration_date).toLocaleString()}
                             </div>
                         </div>
-
                         <div class="download-link-container">
                             <a href="${finalData.url}" target="_blank" class="download-btn">
-                                <span>🔗 Lien de téléchargement</span>
+                                <span> Lien de téléchargement</span>
                             </a>
                         </div>
-
                         <div class="share-instructions">
                             <p>📱 <strong>Comment partager :</strong> Envoyez le lien de téléchargement et le code A2F au destinataire via des canaux différents pour plus de sécurité.</p>
                         </div>
                     </div>
                 `;
-
-                // Ajouter la fonction pour copier dans le presse-papier
                 window.copyToClipboard = function(text) {
                     navigator.clipboard.writeText(text).then(() => {
                         alert('Copié dans le presse-papier !');
@@ -209,9 +207,17 @@ form.addEventListener('submit', async function(e) {
             throw new Error(result.message || 'Erreur lors de l\'upload');
         }
     } catch (error) {
-        console.error('Erreur:', error);
-        uploadResult.innerHTML = `<h3>❌ Erreur : ${error.message}</h3>`;
-        progressBar.style.backgroundColor = "#e74c3c";
+        if (error.message !== 'Upload annulé') {
+            uploadResult.innerHTML = `<h3>❌ Erreur : ${error.message}</h3>`;
+            progressBar.style.backgroundColor = "#e74c3c";
+        }
+        cancelBtn.style.display = 'none'; // 👈 Toujours cacher après
+    }
+});
+
+cancelBtn.addEventListener('click', () => {
+    if (currentUpload) {
+        currentUpload.abort(); // 🛑
     }
 });
 

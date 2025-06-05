@@ -26,6 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $authCode = generateAuthCode();
+    
+    // CORRECTION: Utiliser le même fuseau horaire
+    date_default_timezone_set('Europe/Paris');
     $expirationDate = date('Y-m-d H:i:s', strtotime('+5 days'));
 
     try {
@@ -61,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $authStmt = $pdo->prepare($authSql);
         $authStmt->execute([$fileId, $authCode, $expirationDate]);
         
-        // 5. Logger les actions
+        // 5. Logger les actions avec la ville
         if (class_exists('FileLogger')) {
             $logger = new FileLogger($pdo);
             $logger->log($fileId, 'upload_complete', 'success', 
@@ -69,6 +72,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $logger->log($fileId, 'auth_generate', 'success', 
                 "Code A2F généré - Code: {$authCode}, Expiration: {$expirationDate}");
+        } else {
+            // Fallback si le logger n'est pas disponible
+            $userIp = $_SERVER['REMOTE_ADDR'];
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+            
+            // Fonction pour récupérer la ville
+            function getCity($ip) {
+                $apiUrl = "http://ip-api.com/json/" . $ip;
+                $response = @file_get_contents($apiUrl);
+                if ($response) {
+                    $data = json_decode($response, true);
+                    return ($data && $data['status'] === 'success') ? $data['city'] : 'Inconnue';
+                }
+                return 'Inconnue';
+            }
+            
+            $city = getCity($userIp);
+            $actionDate = date('Y-m-d H:i:s');
+            
+            // Logger directement
+            $logSql = "INSERT INTO file_logs (file_id, action_type, user_ip, user_agent, city, status, details, action_date) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            $logStmt = $pdo->prepare($logSql);
+            $logStmt->execute([
+                $fileId,
+                'upload_complete',
+                $userIp,
+                $userAgent,
+                $city,
+                'success',
+                "Upload finalisé - Fichier: {$filename}, Code: {$downloadCode}",
+                $actionDate
+            ]);
         }
 
         // 6. Valider la transaction

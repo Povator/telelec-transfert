@@ -45,7 +45,7 @@ try {
     $stats['active_files'] = $stmt->fetchColumn();
 
     // Dernières alertes
-    $sql = "SELECT *, CONVERT_TZ(action_date, 'UTC', 'Europe/Paris') as action_date 
+    $sql = "SELECT *, action_date 
             FROM file_logs 
             WHERE status = 'error' OR action_type IN ('failed_login', 'virus_detected', 'unauthorized_access')
             ORDER BY action_date DESC LIMIT 10";
@@ -55,7 +55,7 @@ try {
 
     // Logs système
     $sql = "SELECT l.*, f.filename, 
-        CONVERT_TZ(l.action_date, 'UTC', 'Europe/Paris') as action_date, 
+        l.action_date, 
         l.details 
         FROM file_logs l 
         LEFT JOIN files f ON l.file_id = f.id 

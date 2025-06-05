@@ -46,12 +46,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         header("Location: /admin/dashboard.php");
 
         try {
+            // CORRECTION: Définir le fuseau horaire et utiliser PHP pour la date
+            date_default_timezone_set('Europe/Paris');
+            $actionDate = date('Y-m-d H:i:s');
+            
             $sql = "INSERT INTO sessions (id, user_id, last_activity, ip_address, user_agent) 
-            VALUES (?, ?, NOW(), ?, ?)";
+            VALUES (?, ?, ?, ?, ?)";
             $stmt = $conn->prepare($sql);
             $stmt->execute([
                 session_id(),
                 1,
+                $actionDate, // Utiliser la variable PHP
                 $_SERVER['REMOTE_ADDR'],
                 $_SERVER['HTTP_USER_AGENT']
             ]);

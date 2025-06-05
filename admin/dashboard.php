@@ -38,7 +38,7 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                 $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
                 $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-                // Modifier la requête SQL pour inclure les informations du premier téléchargement
+                // Modifier la requête SQL pour inclure la ville de l'auteur depuis les logs
                 $sql = "SELECT f.*, 
                         (SELECT COUNT(*) FROM download_history WHERE file_id = f.id) as download_count,
                         dac.auth_code,
@@ -47,7 +47,8 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                         dh.download_ip,
                         dh.user_agent,
                         dh.city,
-                        f.upload_ip as author_ip  /* Ajout ici */
+                        f.upload_ip as author_ip,
+                        (SELECT city FROM file_logs WHERE file_id = f.id AND action_type = 'upload_complete' LIMIT 1) as author_city
                         FROM files f
                         LEFT JOIN download_auth_codes dac ON f.id = dac.file_id 
                             AND dac.expiration_date > NOW() 
@@ -60,8 +61,9 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
 
                 if (count($files) > 0) {
                     echo "<table class='admin-table'>";
-                    // Remplacer la section de l'en-tête du tableau par :
+                    // Ajouter une colonne de sélection
                     echo "<tr>
+                            <th><input type='checkbox' id='selectAll' onchange='toggleSelectAll(this)'></th>
                             <th>ID</th>
                             <th>Nom du fichier</th>
                             <th>Date d'envoi</th>
@@ -79,9 +81,10 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                             <th>Actions</th>
                         </tr>";
 
-                    // Remplacer la boucle foreach par :
                     foreach ($files as $file) {
                         echo "<tr data-id='" . htmlspecialchars((string)$file['id']) . "'>";
+                        // Ajouter la case à cocher
+                        echo "<td><input type='checkbox' class='file-checkbox' value='" . (int)$file['id'] . "' onchange='updateDeleteButton()'></td>";
                         echo "<td>" . htmlspecialchars((string)$file['id']) . "</td>";
                         echo "<td title='" . htmlspecialchars((string)$file['filename']) . "' class='truncate'>" . htmlspecialchars((string)$file['filename']) . "</td>";
                         echo "<td>" . (new DateTime($file['upload_date']))->format('d/m/Y H:i') . "</td>";
@@ -95,7 +98,8 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                         echo "<td class='truncate' title='" . htmlspecialchars((string)($file['user_agent'] ?? 'Non téléchargé')) . "'>" . htmlspecialchars((string)($file['user_agent'] ?? 'Non téléchargé')) . "</td>";
                         $download_time = $file['download_time'] ? (new DateTime($file['download_time']))->format('d/m/Y H:i') : 'Non téléchargé';
                         echo "<td>" . $download_time . "</td>";
-                        echo "<td class='truncate'>" . htmlspecialchars((string)($file['city'] ?? 'Non renseigné')) . "</td>";                        echo "<td>" . (int)$file['download_count'] . " fois</td>";
+                        echo "<td class='truncate'>" . htmlspecialchars((string)($file['city'] ?? 'Non renseigné')) . "</td>";
+                        echo "<td>" . (int)$file['download_count'] . " fois</td>";
                         echo "<td>
                                 <button onclick='showHistory(" . (int)$file['id'] . ")'>Voir historique</button>
                                 <button class='edit-btn' onclick='editFile(" . (int)$file['id'] . ")'>Modifier</button>
@@ -113,11 +117,17 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                 echo "<p>Erreur de connexion à la base de données : " . $e->getMessage() . "</p>";
             }
         ?>
+        
+        <!-- DÉPLACER CES BOUTONS ICI, AVANT LA FERMETURE DE MAIN -->
+        <div class="admin-controls">
+            <button type="button" onclick="refreshDatabase()" class="refresh-btn">Rafraîchir la BDD</button>
+            <button type="button" id="deleteSelectedBtn" onclick="deleteSelectedFiles()" class="delete-multiple-btn" style="display: none;">
+                🗑️ Supprimer la sélection (<span id="selectedCount">0</span>)
+            </button>
+        </div>
     </main>
-    <div class="admin-controls">
-        <button type="button" onclick="refreshDatabase()" class="refresh-btn">Rafraîchir la BDD</button>
-    </div>
-    <!-- Modal d'édition -->
+    
+    <!-- Modals après main -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>

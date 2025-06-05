@@ -33,6 +33,9 @@ try {
 
     // Générer un nouveau code
     $authCode = generateAuthCode();
+    
+    // CORRECTION: Utiliser le même fuseau horaire
+    date_default_timezone_set('Europe/Paris');
     $expirationDate = date('Y-m-d H:i:s', strtotime('+5 days'));
 
     $sql = "INSERT INTO download_auth_codes (file_id, auth_code, expiration_date) VALUES (?, ?, ?)";

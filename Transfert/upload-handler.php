@@ -63,7 +63,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Déplace le fichier uploadé vers sa destination finale
     if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $targetFile)) {
         $userIp = $_SERVER['REMOTE_ADDR'];
+        
+        // CORRECTION: Utiliser le fuseau horaire européen comme dans l'affichage
+        date_default_timezone_set('Europe/Paris');
         $uploadDate = date('Y-m-d H:i:s');
+        
+        // Fonction pour récupérer la ville depuis l'IP
+        function getCity($ip) {
+            $apiUrl = "http://ip-api.com/json/" . $ip;
+            $response = @file_get_contents($apiUrl);
+            if ($response) {
+                $data = json_decode($response, true);
+                return ($data && $data['status'] === 'success') ? $data['city'] : 'Inconnue';
+            }
+            return 'Inconnue';
+        }
+        
+        $authorCity = getCity($userIp);
         
         // Générer un code de téléchargement unique
         function generateDownloadCode($length = 8) {
@@ -81,8 +97,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo = new PDO('mysql:host=db;dbname=telelec;charset=utf8', 'telelecuser', 'userpassword');
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+            // Insérer le fichier dans la base
             $stmt = $pdo->prepare("INSERT INTO files (filename, upload_date, upload_ip, download_code) VALUES (?, ?, ?, ?)");
             $stmt->execute([$finalName, $uploadDate, $userIp, $downloadCode]);
+            
+            // Récupérer l'ID du fichier inséré
+            $fileId = $pdo->lastInsertId();
+            
+            // Logger l'upload avec la ville
+            $logSql = "INSERT INTO file_logs (file_id, action_type, user_ip, user_agent, city, status, details, action_date) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            $logStmt = $pdo->prepare($logSql);
+            $logStmt->execute([
+                $fileId,
+                'upload_start',
+                $userIp,
+                $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
+                $authorCity,
+                'success',
+                "Upload démarré - Fichier: {$finalName}",
+                $uploadDate
+            ]);
 
             echo json_encode([
                 'status' => 'success',

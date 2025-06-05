@@ -225,7 +225,7 @@ button[type="submit"]:hover {
 
 .download-btn {
     display: inline-block;
-    background-color: #3498db;
+    background-color: #31353B;
     color: white;
     padding: 12px 25px;
     border-radius: 5px;
@@ -235,7 +235,7 @@ button[type="submit"]:hover {
 }
 
 .download-btn:hover {
-    background-color: #2980b9;
+    background-color: #e74c3c;
 }
 
 .share-instructions {
@@ -260,3 +260,22 @@ button[type="submit"]:hover {
         width: 100%;
     }
 }
+
+/* Bouton annulation */
+.cancel-btn {
+    margin-top: 10px;
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.cancel-btn:hover {
+    background-color: #c0392b;
+}
+
+

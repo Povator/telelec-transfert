@@ -6,7 +6,7 @@ session_start(); // Déplacer session_start() tout en haut du fichier
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Envoyer un fichier - TeLelec</title>
+    <title>Envoyer un fichier - Telelec</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="/css/upload.css">
     
@@ -36,6 +36,10 @@ session_start(); // Déplacer session_start() tout en haut du fichier
                 <p class="speed-text">Vitesse : -- MB/s</p>
                 <p class="time-text">Temps restant : --:--</p>
             </div>
+
+            <button type="button" id="cancelUploadBtn" style="display: none;" class="cancel-btn">
+            ❌ Annuler l’upload
+        </button>
 
             <div id="uploadResult"></div>
 

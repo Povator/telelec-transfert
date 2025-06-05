@@ -157,3 +157,172 @@ function deleteTransfer(id) {
         });
     }
 }
+
+// Fonctions pour la sélection multiple
+function toggleSelectAll(checkbox) {
+    const fileCheckboxes = document.querySelectorAll('.file-checkbox');
+    fileCheckboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+    updateDeleteButton();
+}
+
+function updateDeleteButton() {
+    const selectedCheckboxes = document.querySelectorAll('.file-checkbox:checked');
+    const deleteBtn = document.getElementById('deleteSelectedBtn');
+    const countSpan = document.getElementById('selectedCount');
+    
+    if (!deleteBtn || !countSpan) return; // Vérification de sécurité
+    
+    if (selectedCheckboxes.length > 0) {
+        deleteBtn.style.display = 'inline-block';
+        countSpan.textContent = selectedCheckboxes.length;
+    } else {
+        deleteBtn.style.display = 'none';
+    }
+    
+    // Mettre à jour la case "Tout sélectionner"
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const allCheckboxes = document.querySelectorAll('.file-checkbox');
+    
+    if (selectAllCheckbox && allCheckboxes.length > 0) {
+        if (selectedCheckboxes.length === 0) {
+            selectAllCheckbox.indeterminate = false;
+            selectAllCheckbox.checked = false;
+        } else if (selectedCheckboxes.length === allCheckboxes.length) {
+            selectAllCheckbox.indeterminate = false;
+            selectAllCheckbox.checked = true;
+        } else {
+            selectAllCheckbox.indeterminate = true;
+        }
+    }
+}
+
+function deleteSelectedFiles() {
+    const selectedCheckboxes = document.querySelectorAll('.file-checkbox:checked');
+    const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+    
+    if (selectedIds.length === 0) {
+        alert('Aucun fichier sélectionné');
+        return;
+    }
+    
+    const confirmMessage = `Êtes-vous sûr de vouloir supprimer ${selectedIds.length} fichier(s) ? Cette action est irréversible.`;
+    
+    if (confirm(confirmMessage)) {
+        // Afficher un indicateur de chargement
+        const deleteBtn = document.getElementById('deleteSelectedBtn');
+        const originalText = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = '⏳ Suppression en cours...';
+        deleteBtn.disabled = true;
+        
+        // Supprimer les fichiers un par un
+        deleteFilesSequentially(selectedIds, 0, originalText);
+    }
+}
+
+function deleteFilesSequentially(fileIds, index, originalButtonText) {
+    if (index >= fileIds.length) {
+        // Tous les fichiers ont été traités
+        const deleteBtn = document.getElementById('deleteSelectedBtn');
+        deleteBtn.innerHTML = originalButtonText;
+        deleteBtn.disabled = false;
+        deleteBtn.style.display = 'none';
+        
+        // Décocher toutes les cases
+        document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = false);
+        document.getElementById('selectAll').checked = false;
+        
+        alert('Suppression terminée');
+        location.reload();
+        return;
+    }
+    
+    const fileId = fileIds[index];
+    
+    fetch('/admin/delete-transfer.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'id=' + encodeURIComponent(fileId),
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Erreur réseau');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Supprimer la ligne du tableau
+            const row = document.querySelector(`tr[data-id="${fileId}"]`);
+            if (row) {
+                row.remove();
+            }
+        } else {
+            console.error(`Erreur lors de la suppression du fichier ${fileId}:`, data.message);
+        }
+        
+        // Passer au fichier suivant
+        setTimeout(() => {
+            deleteFilesSequentially(fileIds, index + 1, originalButtonText);
+        }, 200); // Petite pause entre les suppressions
+    })
+    .catch(error => {
+        console.error(`Erreur lors de la suppression du fichier ${fileId}:`, error);
+        
+        // Continuer malgré l'erreur
+        setTimeout(() => {
+            deleteFilesSequentially(fileIds, index + 1, originalButtonText);
+        }, 200);
+    });
+}
+
+// NOUVELLE FONCTION - Empêcher la sélection des en-têtes
+document.addEventListener('DOMContentLoaded', function() {
+    // Empêcher la sélection des en-têtes de tableau
+    document.querySelectorAll('.admin-table th').forEach(header => {
+        header.addEventListener('selectstart', function(e) {
+            e.preventDefault();
+        });
+        
+        header.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+        });
+    });
+    
+    // Ajouter des événements aux cases à cocher existantes
+    document.querySelectorAll('.file-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const row = this.closest('tr');
+            if (this.checked) {
+                row.classList.add('selected');
+            } else {
+                row.classList.remove('selected');
+            }
+            updateDeleteButton(); // Mettre à jour le bouton de suppression
+        });
+    });
+    
+    // Gérer la case "Tout sélectionner"
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            document.querySelectorAll('.file-checkbox').forEach(checkbox => {
+                checkbox.checked = this.checked;
+                const row = checkbox.closest('tr');
+                if (this.checked) {
+                    row.classList.add('selected');
+                } else {
+                    row.classList.remove('selected');
+                }
+            });
+            updateDeleteButton(); // Mettre à jour le bouton
+        });
+    }
+    
+    // Vérifier l'état initial
+    updateDeleteButton();
+});
