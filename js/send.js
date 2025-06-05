@@ -152,7 +152,6 @@ form.addEventListener('submit', async function(e) {
             }
 
             const finalData = await finalizeResponse.json();
-            console.log("Réponse de finalisation:", finalData);
 
             if (finalData.success) {
                 progressBar.style.backgroundColor = "#4CAF50";
@@ -184,9 +183,9 @@ form.addEventListener('submit', async function(e) {
                             </div>
                         </div>
                         <div class="download-link-container">
-                            <a href="${finalData.url}" target="_blank" class="download-btn">
-                                <span> Lien de téléchargement</span>
-                            </a>
+                        <a href="${finalData.url}" target="_blank" class="download-btn">
+                        <span> Lien de téléchargement</span>
+                        </a>
                         </div>
                         <div class="share-instructions">
                             <p>📱 <strong>Comment partager :</strong> Envoyez le lien de téléchargement et le code A2F au destinataire via des canaux différents pour plus de sécurité.</p>

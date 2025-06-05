@@ -123,7 +123,6 @@ function generateNewAuthCode(fileId) {
 
 function deleteTransfer(id) {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce transfert ? Cette action est irréversible.')) {
-        console.log('Tentative de suppression du fichier ID:', id);
         
         fetch('/admin/delete-transfer.php', {
             method: 'POST',
@@ -140,7 +139,6 @@ function deleteTransfer(id) {
             return response.json();
         })
         .then(data => {
-            console.log('Réponse:', data);
             if (data.success) {
                 const row = document.querySelector(`tr[data-id="${id}"]`);
                 if (row) {

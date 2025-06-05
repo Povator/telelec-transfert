@@ -30,7 +30,6 @@ try {
 
     // Uploads aujourd'hui
     $sql = "SELECT COUNT(*) FROM file_logs WHERE action_type = 'upload_complete' AND action_date >= CURDATE()";
-
     $stmt = $conn->query($sql);
     $stats['total_uploads_today'] = $stmt->fetchColumn();
 
@@ -44,23 +43,23 @@ try {
     $stmt = $conn->query($sql);
     $stats['active_files'] = $stmt->fetchColumn();
 
-    // Dernières alertes
+    // Dernières alertes - MODIFIÉ pour récupérer plus d'entrées
     $sql = "SELECT *, action_date 
             FROM file_logs 
             WHERE status = 'error' OR action_type IN ('failed_login', 'virus_detected', 'unauthorized_access')
-            ORDER BY action_date DESC LIMIT 10";
+            ORDER BY action_date DESC LIMIT 50"; // Augmenté pour avoir plus d'alertes
     $stmt = $conn->prepare($sql);
     $stmt->execute();
     $alerts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Logs système
+    // Logs système - MODIFIÉ pour récupérer plus d'entrées
     $sql = "SELECT l.*, f.filename, 
         l.action_date, 
         l.details 
         FROM file_logs l 
         LEFT JOIN files f ON l.file_id = f.id 
         ORDER BY l.action_date DESC 
-        LIMIT 100";
+        LIMIT 500"; // Augmenté pour avoir plus de logs
     $stmt = $conn->prepare($sql);
     $stmt->execute();
     $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -110,58 +109,91 @@ try {
         </div>
 
         <!-- Alertes -->
-        <h2>🚨 Dernières alertes</h2>
-        <table class="admin-table alerts-table">
-            <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>IP</th>
-                <th>Détails</th>
-            </tr>
-            <?php foreach ($alerts as $alert): ?>
-            <tr class="alert-row">
-                <td><?= (new DateTime($alert['action_date']))->format('d/m/Y H:i:s') ?></td>
-                <td><?= htmlspecialchars($alert['action_type']) ?></td>
-                <td><?= htmlspecialchars($alert['user_ip']) ?></td>
-                <td><?= htmlspecialchars($alert['details']) ?></td>
-            </tr>
-            <?php endforeach; ?>
-        </table>
+        <div class="logs-section">
+            <div class="logs-header">
+                <h2>🚨 Dernières alertes</h2>
+                <div class="logs-controls">
+                    <span class="logs-count">Affichage de 10 sur <?= count($alerts) ?> alertes</span>
+                    <?php if (count($alerts) > 10): ?>
+                        <button onclick="toggleLogs('alerts')" id="alerts-toggle" class="toggle-btn">
+                            📄 Voir plus
+                        </button>
+                    <?php endif; ?>
+                </div>
+            </div>
+            
+            <table class="admin-table alerts-table">
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>IP</th>
+                    <th>Détails</th>
+                </tr>
+                <?php 
+                foreach ($alerts as $index => $alert): 
+                    $isHidden = $index >= 10 ? 'class="hidden-row"' : '';
+                ?>
+                <tr <?= $isHidden ?> class="alert-row <?= $index >= 10 ? 'hidden-row' : '' ?>">
+                    <td><?= (new DateTime($alert['action_date']))->format('d/m/Y H:i:s') ?></td>
+                    <td><?= htmlspecialchars($alert['action_type']) ?></td>
+                    <td><?= htmlspecialchars($alert['user_ip']) ?></td>
+                    <td><?= htmlspecialchars($alert['details']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
 
         <!-- Logs système -->
-        <h2>📝 Logs système</h2>
-        <table class="admin-table">
-            <tr>
-                <th>Date</th>
-                <th>Fichier</th>
-                <th>Action</th>
-                <th>IP</th>
-                <th>Ville</th>
-                <th>Status</th>
-                <th>Détails</th>
-            </tr>
-            <?php foreach ($logs as $log): ?>
-            <tr class="<?= $log['status'] === 'error' ? 'error-row' : '' ?>">
-                <td><?= $log['action_date'] ? date('d/m/Y H:i:s', strtotime($log['action_date'])) : '-' ?></td>
-                <td>
-                    <?php
-                    if (!empty($log['filename'])) {
-                        echo htmlspecialchars($log['filename']);
-                    } elseif (empty($log['file_id'])) {
-                        echo '<em>Général</em>';
-                    } else {
-                        echo '<em>Fichier en cours d\'upload</em>';
-                    }
-                    ?>
-                </td>
-                <td><?= htmlspecialchars($log['action_type']) ?></td>
-                <td><?= htmlspecialchars($log['user_ip']) ?></td>
-                <td><?= htmlspecialchars($log['city'] ?? 'Non renseigné') ?></td>
-                <td><?= htmlspecialchars($log['status']) ?></td>
-                <td><?= htmlspecialchars($log['details']) ?></td>
-            </tr>
-            <?php endforeach; ?>
-        </table>
+        <div class="logs-section">
+            <div class="logs-header">
+                <h2>📝 Logs système</h2>
+                <div class="logs-controls">
+                    <span class="logs-count">Affichage de 10 sur <?= count($logs) ?> logs</span>
+                    <?php if (count($logs) > 10): ?>
+                        <button onclick="toggleLogs('system')" id="system-toggle" class="toggle-btn">
+                            📄 Voir plus
+                        </button>
+                    <?php endif; ?>
+                </div>
+            </div>
+            
+            <table class="admin-table">
+                <tr>
+                    <th>Date</th>
+                    <th>Fichier</th>
+                    <th>Action</th>
+                    <th>IP</th>
+                    <th>Ville</th>
+                    <th>Status</th>
+                    <th>Détails</th>
+                </tr>
+                <?php 
+                foreach ($logs as $index => $log): 
+                    $errorClass = $log['status'] === 'error' ? 'error-row' : '';
+                    $hiddenClass = $index >= 10 ? 'hidden-row' : '';
+                ?>
+                <tr class="<?= $errorClass ?> <?= $hiddenClass ?>">
+                    <td><?= $log['action_date'] ? date('d/m/Y H:i:s', strtotime($log['action_date'])) : '-' ?></td>
+                    <td>
+                        <?php
+                        if (!empty($log['filename'])) {
+                            echo htmlspecialchars($log['filename']);
+                        } elseif (empty($log['file_id'])) {
+                            echo '<em>Général</em>';
+                        } else {
+                            echo '<em>Fichier en cours d\'upload</em>';
+                        }
+                        ?>
+                    </td>
+                    <td><?= htmlspecialchars($log['action_type']) ?></td>
+                    <td><?= htmlspecialchars($log['user_ip']) ?></td>
+                    <td><?= htmlspecialchars($log['city'] ?? 'Non renseigné') ?></td>
+                    <td><?= htmlspecialchars($log['status']) ?></td>
+                    <td><?= htmlspecialchars($log['details']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
     </main>
 
     <style>
@@ -192,6 +224,58 @@ try {
         color: #ED501C;
     }
 
+    .logs-section {
+        margin: 30px 20px;
+    }
+
+    .logs-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding: 10px 0;
+        border-bottom: 2px solid #ED501C;
+    }
+
+    .logs-header h2 {
+        margin: 0;
+        color: #333;
+    }
+
+    .logs-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .logs-count {
+        font-size: 14px;
+        color: #666;
+        font-style: italic;
+    }
+
+    .toggle-btn {
+        background: linear-gradient(45deg, #ED501C, #ff6b3d);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(237, 80, 28, 0.3);
+    }
+
+    .toggle-btn:hover {
+        background: linear-gradient(45deg, #d64615, #ED501C);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(237, 80, 28, 0.4);
+    }
+
+    .hidden-row {
+        display: none;
+    }
+
     .alerts-table {
         margin: 20px 0;
     }
@@ -204,13 +288,86 @@ try {
         background-color: #fff3f3;
     }
 
-    h2 {
-        margin: 30px 20px 10px;
-        color: #333;
+    /* Animation pour l'apparition des lignes */
+    tr.show-animation {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     </style>
 
     <script>
+    let alertsExpanded = false;
+    let systemExpanded = false;
+
+    function toggleLogs(type) {
+        const button = document.getElementById(type + '-toggle');
+        const table = button.closest('.logs-section').querySelector('table');
+        let hiddenRows;
+        const countSpan = button.closest('.logs-controls').querySelector('.logs-count');
+        
+        if (type === 'alerts') {
+            alertsExpanded = !alertsExpanded;
+            const totalAlerts = <?= count($alerts) ?>;
+            
+            if (alertsExpanded) {
+                // Sélectionne les lignes cachées (avec classe hidden-row)
+                hiddenRows = table.querySelectorAll('.hidden-row');
+                hiddenRows.forEach((row, index) => {
+                    setTimeout(() => {
+                        row.classList.remove('hidden-row');
+                        row.classList.add('show-animation');
+                    }, index * 50);
+                });
+                button.innerHTML = '📄 Voir moins';
+                countSpan.textContent = `Affichage de ${totalAlerts} sur ${totalAlerts} alertes`;
+            } else {
+                // Sélectionne TOUTES les lignes à partir de l'index 10
+                const rows = table.querySelectorAll('tr');
+                for (let i = 11; i < rows.length; i++) { // commence à 11 car l'index 0 est l'en-tête
+                    rows[i].classList.add('hidden-row');
+                    rows[i].classList.remove('show-animation');
+                }
+                button.innerHTML = '📄 Voir plus';
+                countSpan.textContent = `Affichage de 10 sur ${totalAlerts} alertes`;
+            }
+        } else if (type === 'system') {
+            systemExpanded = !systemExpanded;
+            const totalLogs = <?= count($logs) ?>;
+            
+            if (systemExpanded) {
+                // Sélectionne les lignes cachées (avec classe hidden-row)
+                hiddenRows = table.querySelectorAll('.hidden-row');
+                hiddenRows.forEach((row, index) => {
+                    setTimeout(() => {
+                        row.classList.remove('hidden-row');
+                        row.classList.add('show-animation');
+                    }, index * 30);
+                });
+                button.innerHTML = '📄 Voir moins';
+                countSpan.textContent = `Affichage de ${totalLogs} sur ${totalLogs} logs`;
+            } else {
+                // Sélectionne TOUTES les lignes à partir de l'index 10
+                const rows = table.querySelectorAll('tr');
+                for (let i = 11; i < rows.length; i++) { // commence à 11 car l'index 0 est l'en-tête
+                    rows[i].classList.add('hidden-row');
+                    rows[i].classList.remove('show-animation');
+                }
+                button.innerHTML = '📄 Voir plus';
+                countSpan.textContent = `Affichage de 10 sur ${totalLogs} logs`;
+            }
+        }
+    }
+
     // Actualisation automatique toutes les 30 secondes
     setTimeout(function() {
         window.location.reload();
