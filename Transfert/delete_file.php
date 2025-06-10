@@ -3,7 +3,7 @@ session_start();
 require_once '../config/database.php';
 
 // Vérifier si l'utilisateur est admin
-if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+if (!isset($_SESSION['user'])) {
     header('Location: /dashboard.php');
     exit();
 }

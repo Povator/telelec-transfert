@@ -404,3 +404,6 @@ td:nth-child(5) {
         padding: 8px;
     }
 }
+.warning-row {
+    background-color: #fff9e6;
+}

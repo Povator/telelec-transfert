@@ -54,7 +54,25 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                             AND dac.expiration_date > NOW() 
                             AND dac.used = FALSE
                         LEFT JOIN download_history dh ON f.id = dh.file_id
-                        ORDER BY f.id DESC";
+                        WHERE 1=1"; // Ajout de WHERE 1=1 pour faciliter l'ajout de conditions
+                $stmt = $conn->prepare($sql);
+
+                // Filtrer selon le statut antivirus si demandé
+                if (isset($_GET['filter'])) {
+                    switch ($_GET['filter']) {
+                        case 'clean':
+                            $sql .= " AND (antivirus_status = 'true' OR antivirus_status = '1')";
+                            break;
+                        case 'warning':
+                            $sql .= " AND antivirus_status = 'warning'";
+                            break;
+                        case 'virus':
+                            $sql .= " AND (antivirus_status = 'false' OR antivirus_status = '0')";
+                            break;
+                    }
+                }
+
+                $sql .= " ORDER BY f.id DESC"; // Déplacer le ORDER BY ici
                 $stmt = $conn->prepare($sql);
                 $stmt->execute();
                 $files = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -78,6 +96,7 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                             <th>Date téléchargement</th>
                             <th>Ville</th>
                             <th>Nombre téléchargements</th>
+                            <th>Test ClamAV</th>
                             <th>Actions</th>
                         </tr>";
 
@@ -100,6 +119,28 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                         echo "<td>" . $download_time . "</td>";
                         echo "<td class='truncate'>" . htmlspecialchars((string)($file['city'] ?? 'Non renseigné')) . "</td>";
                         echo "<td>" . (int)$file['download_count'] . " fois</td>";
+                        
+                        // Nouvelle colonne pour le statut ClamAV
+                        echo "<td>";
+                        if ($file['antivirus_status'] == 'true' || $file['antivirus_status'] === '1' || $file['antivirus_status'] === 1) {
+                            echo "<span class='badge bg-success' title='" . htmlspecialchars($file['antivirus_message'] ?? '') . "'>
+                                    <i class='bi bi-shield-check'></i> Sain
+                                  </span>";
+                        } elseif ($file['antivirus_status'] == 'warning') {
+                            echo "<span class='badge bg-warning' title='" . htmlspecialchars($file['antivirus_message'] ?? '') . "'>
+                                    <i class='bi bi-shield-exclamation'></i> Attention
+                                  </span>";
+                        } elseif ($file['antivirus_status'] == 'false' || $file['antivirus_status'] === '0' || $file['antivirus_status'] === 0) {
+                            echo "<span class='badge bg-danger' title='" . htmlspecialchars($file['antivirus_message'] ?? '') . "'>
+                                    <i class='bi bi-shield-x'></i> Virus
+                                  </span>";
+                        } else {
+                            echo "<span class='badge bg-secondary' title='Analyse non disponible'>
+                                    <i class='bi bi-shield'></i> Inconnu
+                                  </span>";
+                        }
+                        echo "</td>";
+                        
                         echo "<td>
                                 <button onclick='showHistory(" . (int)$file['id'] . ")'>Voir historique</button>
                                 <button class='edit-btn' onclick='editFile(" . (int)$file['id'] . ")'>Modifier</button>
@@ -117,6 +158,14 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                 echo "<p>Erreur de connexion à la base de données : " . $e->getMessage() . "</p>";
             }
         ?>
+        
+        <!-- Ajouter à côté des autres filtres -->
+        <div class="btn-group mb-3">
+            <a href="?filter=all" class="btn btn-outline-secondary <?= (!isset($_GET['filter']) || $_GET['filter'] == 'all') ? 'active' : '' ?>">Tous</a>
+            <a href="?filter=clean" class="btn btn-outline-success <?= (isset($_GET['filter']) && $_GET['filter'] == 'clean') ? 'active' : '' ?>">Fichiers sains</a>
+            <a href="?filter=warning" class="btn btn-outline-warning <?= (isset($_GET['filter']) && $_GET['filter'] == 'warning') ? 'active' : '' ?>">Avertissements</a>
+            <a href="?filter=virus" class="btn btn-outline-danger <?= (isset($_GET['filter']) && $_GET['filter'] == 'virus') ? 'active' : '' ?>">Virus</a>
+        </div>
         
         <!-- DÉPLACER CES BOUTONS ICI, AVANT LA FERMETURE DE MAIN -->
         <div class="admin-controls">

@@ -64,6 +64,17 @@ try {
     $stmt->execute();
     $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Analyses Antivirus
+    $sql = "SELECT l.*, f.filename, l.action_date, l.details 
+            FROM file_logs l 
+            LEFT JOIN files f ON l.file_id = f.id 
+            WHERE l.action_type IN ('antivirus_scan', 'virus_detected') 
+            ORDER BY l.action_date DESC 
+            LIMIT 50";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute();
+    $antivirusLogs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 } catch (PDOException $e) {
     die("Erreur de connexion : " . $e->getMessage());
 }
@@ -194,6 +205,60 @@ try {
                 <?php endforeach; ?>
             </table>
         </div>
+
+        <!-- Analyses Antivirus -->
+        <div class="logs-section">
+            <div class="logs-header">
+                <h2>🦠 Analyses Antivirus</h2>
+                <div class="logs-controls">
+                    <span class="logs-count" id="antivirus-count">Chargement...</span>
+                    <button onclick="toggleLogs('antivirus')" id="antivirus-toggle" class="toggle-btn">
+                        📄 Voir plus
+                    </button>
+                </div>
+            </div>
+            
+            <table class="admin-table">
+                <tr>
+                    <th>Date</th>
+                    <th>Fichier</th>
+                    <th>Statut</th>
+                    <th>IP</th>
+                    <th>Ville</th>
+                    <th>Détails</th>
+                </tr>
+                <?php
+                foreach ($antivirusLogs as $index => $log):
+                    $statusClass = '';
+                    if ($log['status'] === 'error') {
+                        $statusClass = 'error-row';
+                    } elseif ($log['status'] === 'warning') {
+                        $statusClass = 'warning-row';
+                    }
+                    
+                    $hiddenClass = $index >= 10 ? 'hidden-row' : '';
+                ?>
+                <tr class="<?= $statusClass ?> <?= $hiddenClass ?>">
+                    <td><?= $log['action_date'] ? date('d/m/Y H:i:s', strtotime($log['action_date'])) : '-' ?></td>
+                    <td>
+                        <?php
+                        if (!empty($log['filename'])) {
+                            echo htmlspecialchars($log['filename']);
+                        } elseif (empty($log['file_id'])) {
+                            echo '<em>Fichier rejeté</em>';
+                        } else {
+                            echo '<em>Fichier analysé</em>';
+                        }
+                        ?>
+                    </td>
+                    <td><?= htmlspecialchars($log['status']) ?></td>
+                    <td><?= htmlspecialchars($log['user_ip']) ?></td>
+                    <td><?= htmlspecialchars($log['city'] ?? 'Non renseigné') ?></td>
+                    <td><?= htmlspecialchars($log['details']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
     </main>
 
     <style>
@@ -308,6 +373,7 @@ try {
     <script>
     let alertsExpanded = false;
     let systemExpanded = false;
+    let antivirusExpanded = false;
 
     function toggleLogs(type) {
         const button = document.getElementById(type + '-toggle');
@@ -365,8 +431,37 @@ try {
                 button.innerHTML = '📄 Voir plus';
                 countSpan.textContent = `Affichage de 10 sur ${totalLogs} logs`;
             }
+        } else if (type === 'antivirus') {
+            antivirusExpanded = !antivirusExpanded;
+            const totalLogs = <?= count($antivirusLogs) ?>;
+            
+            if (antivirusExpanded) {
+                // Sélectionne les lignes cachées (avec classe hidden-row)
+                hiddenRows = table.querySelectorAll('.hidden-row');
+                hiddenRows.forEach((row, index) => {
+                    setTimeout(() => {
+                        row.classList.remove('hidden-row');
+                        row.classList.add('show-animation');
+                    }, index * 30);
+                });
+                button.innerHTML = '📄 Voir moins';
+                document.getElementById('antivirus-count').textContent = `Affichage de ${totalLogs} sur ${totalLogs} analyses`;
+            } else {
+                // Sélectionne TOUTES les lignes à partir de l'index 10
+                const rows = table.querySelectorAll('tr');
+                for (let i = 11; i < rows.length; i++) { // commence à 11 car l'index 0 est l'en-tête
+                    rows[i].classList.add('hidden-row');
+                    rows[i].classList.remove('show-animation');
+                }
+                button.innerHTML = '📄 Voir plus';
+                document.getElementById('antivirus-count').textContent = `Affichage de 10 sur ${totalLogs} analyses`;
+            }
         }
     }
+
+    // Initialisation du compteur antivirus
+    document.getElementById('antivirus-count').textContent = 
+        `Affichage de ${Math.min(10, <?= count($antivirusLogs ?? []) ?>)} sur <?= count($antivirusLogs ?? []) ?> analyses`;
 
     // Actualisation automatique toutes les 30 secondes
     setTimeout(function() {

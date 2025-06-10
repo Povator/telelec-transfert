@@ -6,9 +6,10 @@
  * - La validation des fichiers
  * - La sécurisation des noms de fichiers
  * - La gestion des doublons
+ * - L'analyse antivirus
  * 
  * @author  TeleLec
- * @version 1.0
+ * @version 1.2
  */
 
 // Configuration des erreurs
@@ -17,15 +18,9 @@ error_reporting(E_ALL);
 
 header('Content-Type: application/json');
 
-/**
- * Nettoie et sécurise le nom d'un fichier
- * 
- * @param string $filename Nom du fichier à nettoyer
- * @return string Nom du fichier nettoyé
- */
-function sanitizeFilename($filename) {
-    return preg_replace("/[^a-zA-Z0-9\._-]/", "_", basename($filename));
-}
+// Inclure les utilitaires et le système antivirus
+require_once __DIR__ . '/../includes/file_utils.php';
+require_once __DIR__ . '/../includes/antivirus.php';
 
 // Traitement de la requête
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -43,94 +38,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Récupère et sécurise le nom du fichier
+    // Récupère le nom original et génère un nom unique
     $originalName = $_FILES["fileToUpload"]["name"];
-    $safeName = sanitizeFilename($originalName);
-    $fileInfo = pathinfo($safeName);
-    $baseName = $fileInfo['filename'];
-    $extension = isset($fileInfo['extension']) ? '.' . $fileInfo['extension'] : '';
+    $uniqueFile = generateUniqueFilename($targetDir, $originalName);
+    $finalName = $uniqueFile['filename'];
+    $targetFile = $uniqueFile['filepath'];
 
-    // Gestion des doublons : ajoute un compteur si le fichier existe déjà
-    $finalName = $baseName . $extension;
-    $targetFile = $targetDir . $finalName;
-    $counter = 1;
-    while (file_exists($targetFile)) {
-        $finalName = $baseName . '_' . $counter . $extension;
-        $targetFile = $targetDir . $finalName;
-        $counter++;
+    // Analyse antivirus du fichier temporaire
+    $tempFilePath = $_FILES["fileToUpload"]["tmp_name"];
+    
+    try {
+        $scanResult = scanFile($tempFilePath);
+    } catch (Exception $e) {
+        $scanResult = [
+            'status' => 'warning',
+            'message' => 'Impossible d\'analyser le fichier avec l\'antivirus : ' . $e->getMessage()
+        ];
     }
 
-    // Déplace le fichier uploadé vers sa destination finale
-    if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $targetFile)) {
-        $userIp = $_SERVER['REMOTE_ADDR'];
-        
-        // CORRECTION: Utiliser le fuseau horaire européen comme dans l'affichage
-        date_default_timezone_set('Europe/Paris');
-        $uploadDate = date('Y-m-d H:i:s');
-        
-        // Fonction pour récupérer la ville depuis l'IP
-        function getCity($ip) {
-            $apiUrl = "http://ip-api.com/json/" . $ip;
-            $response = @file_get_contents($apiUrl);
-            if ($response) {
-                $data = json_decode($response, true);
-                return ($data && $data['status'] === 'success') ? $data['city'] : 'Inconnue';
-            }
-            return 'Inconnue';
-        }
-        
-        $authorCity = getCity($userIp);
-        
-        // Générer un code de téléchargement unique
-        function generateDownloadCode($length = 8) {
-            $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-            $code = '';
-            for ($i = 0; $i < $length; $i++) {
-                $code .= $characters[rand(0, strlen($characters) - 1)];
-            }
-            return $code;
-        }
-        
-        $downloadCode = generateDownloadCode();
-
-        try {
-            $pdo = new PDO('mysql:host=db;dbname=telelec;charset=utf8', 'telelecuser', 'userpassword');
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-            // Insérer le fichier dans la base
-            $stmt = $pdo->prepare("INSERT INTO files (filename, upload_date, upload_ip, download_code) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$finalName, $uploadDate, $userIp, $downloadCode]);
+    // Vérifier le résultat du scan
+    if ($scanResult['status'] === true || $scanResult['status'] === 'warning') {
+        // Le fichier est sûr ou suspect mais accepté
+        if (move_uploaded_file($_FILES["fileToUpload"]["tmp_name"], $targetFile)) {
             
-            // Récupérer l'ID du fichier inséré
-            $fileId = $pdo->lastInsertId();
-            
-            // Logger l'upload avec la ville
-            $logSql = "INSERT INTO file_logs (file_id, action_type, user_ip, user_agent, city, status, details, action_date) 
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            $logStmt = $pdo->prepare($logSql);
-            $logStmt->execute([
-                $fileId,
-                'upload_start',
-                $userIp,
-                $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
-                $authorCity,
-                'success',
-                "Upload démarré - Fichier: {$finalName}",
-                $uploadDate
-            ]);
+            try {
+                // Connexion à la base de données
+                $conn = new PDO("mysql:host=db;dbname=telelec;charset=utf8", 'telelecuser', 'userpassword');
+                $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                
+                // CORRECTION IMPORTANTE : Utiliser la même timezone partout
+                date_default_timezone_set('Europe/Paris');
 
+                // Générer un code de téléchargement
+                function generateDownloadCode($length = 8) {
+                    $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                    $code = '';
+                    for ($i = 0; $i < $length; $i++) {
+                        $code .= $characters[rand(0, strlen($characters) - 1)];
+                    }
+                    return $code;
+                }
+
+                $downloadCode = generateDownloadCode();
+
+                // Conversion explicite du statut en chaîne
+                $antivirusStatus = $scanResult['status'];
+                if ($antivirusStatus === true) {
+                    $antivirusStatus = 'true';
+                } elseif ($antivirusStatus === false) {
+                    $antivirusStatus = 'false';
+                }
+
+                // Insertion du fichier dans la base de données
+                $sql = "INSERT INTO files (filename, upload_date, upload_ip, upload_city, download_code, antivirus_status, antivirus_message) 
+                        VALUES (?, NOW(), ?, ?, ?, ?, ?)";
+                $stmt = $conn->prepare($sql);
+                $stmt->execute([
+                    $finalName, 
+                    $_SERVER['REMOTE_ADDR'], 
+                    'Unknown', 
+                    $downloadCode,
+                    $antivirusStatus,  // Statut converti en chaîne
+                    $scanResult['message']
+                ]);
+
+                $fileId = $conn->lastInsertId();
+
+                // Pour debug - enregistrer dans les logs
+                error_log("UPLOAD SUCCESS: Original='{$originalName}' Final='{$finalName}' FileId={$fileId}");
+
+                // Retourner le nom final
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Fichier uploadé avec succès',
+                    'filename' => $finalName,  // Nom final (avec suffixe si doublon)
+                    'original' => $originalName,
+                    'file_id' => $fileId
+                ]);
+
+            } catch (PDOException $e) {
+                error_log("UPLOAD ERROR: " . $e->getMessage());
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Erreur lors de l\'enregistrement en base: ' . $e->getMessage()
+                ]);
+            }
+        } else {
             echo json_encode([
-                'status' => 'success',
-                'filename' => $finalName,
-                'original' => $originalName
+                'status' => 'error',
+                'message' => 'Erreur lors du déplacement du fichier'
             ]);
-        } catch (PDOException $e) {
-            error_log("Erreur lors de l'enregistrement en base de données : " . $e->getMessage());
-            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
         }
     } else {
-        echo json_encode(['status' => 'error', 'message' => 'Erreur lors de l\'upload']);
+        // Le fichier est infecté
+        echo json_encode([
+            'status' => 'error',
+            'message' => "Fichier rejeté: {$scanResult['message']}"
+        ]);
     }
-    exit;
+} else {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Méthode HTTP non autorisée'
+    ]);
 }
 ?>

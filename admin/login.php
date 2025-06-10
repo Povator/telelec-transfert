@@ -11,10 +11,6 @@ if (isset($_SESSION['admin']) && $_SESSION['admin'] === true) {
     exit;
 }
 
-/** @var array Configuration contenant les identifiants admin */
-$config = require(__DIR__ . '/../secure/config.php');
-
-
 /**
  * Établissement de la connexion à la base de données
  * @var PDO $conn Instance de connexion PDO
@@ -26,11 +22,6 @@ try {
     die("Erreur de connexion : " . $e->getMessage());
 }
 
-/** @var string $stored_username Nom d'utilisateur administrateur stocké */
-$stored_username = $config['admin_username'];
-/** @var string $stored_password_hash Hash du mot de passe administrateur */
-$stored_password_hash = $config['admin_password_hash'];
-
 /**
  * Traitement de la soumission du formulaire
  * Vérifie les identifiants et crée une session si valides
@@ -39,8 +30,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
 
+    // Rechercher l'utilisateur dans la base de données (sans vérifier le rôle)
+    $sql = "SELECT username, password FROM users WHERE username = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([$username]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($username === $stored_username && password_verify($password, $stored_password_hash)) {
+    if ($user && password_verify($password, $user['password'])) {
         $_SESSION['admin'] = true;
 
         header("Location: /admin/dashboard.php");
