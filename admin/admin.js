@@ -26,9 +26,25 @@ historyCloseBtn.onclick = function() {
 window.addEventListener('click', function(event) {
     if (event.target == modal) {
         modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
     }
     if (event.target == historyModal) {
         historyModal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+});
+
+// CORRECTION: Ajouter la fermeture par touche Échap
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        if (historyModal.style.display === 'block') {
+            historyModal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+        }
+        if (modal.style.display === 'block') {
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+        }
     }
 });
 
@@ -75,25 +91,73 @@ function refreshDatabase() {
 
 function showHistory(fileId) {
     const historyContent = document.getElementById('historyContent');
+    const historyModal = document.getElementById('historyModal');
+    
+    // CORRECTION: Ajouter une classe au body pour empêcher le défilement
+    document.body.classList.add('modal-open');
+    
+    // Afficher un indicateur de chargement
+    historyContent.innerHTML = '<div style="text-align: center; padding: 20px;"><p>⏳ Chargement de l\'historique...</p></div>';
+    
+    // CORRECTION: Afficher le modal immédiatement pour éviter les bugs d'affichage
+    historyModal.style.display = 'block';
     
     fetch(`/admin/get_history.php?file_id=${fileId}`)
         .then(response => response.json())
         .then(data => {
-            let html = '<table class="history-table">';
-            html += '<tr><th>Date</th><th>IP</th><th>Navigateur</th></tr>';
-            data.forEach(download => {
-                html += `<tr>
-                    <td>${download.download_time}</td>
-                    <td>${download.download_ip}</td>
-                    <td>${download.user_agent}</td>
-                </tr>`;
-            });
-            html += '</table>';
-            historyContent.innerHTML = html;
-            historyModal.style.display = 'block';
+            if (data.length === 0) {
+                historyContent.innerHTML = '<div class="no-history">Aucun téléchargement enregistré pour ce fichier</div>';
+            } else {
+                let html = '<table class="history-table">';
+                html += '<thead><tr><th>📅 Date</th><th>🌐 Adresse IP</th><th>🖥️ Navigateur</th><th>📍 Ville</th></tr></thead>';
+                html += '<tbody>';
+                
+                data.forEach(download => {
+                    // Formater la date de manière plus lisible
+                    const date = new Date(download.download_time);
+                    const formattedDate = date.toLocaleDateString('fr-FR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    // Raccourcir le user agent pour l'affichage
+                    let shortUserAgent = download.user_agent || 'Inconnu';
+                    if (shortUserAgent.length > 50) {
+                        shortUserAgent = shortUserAgent.substring(0, 50) + '...';
+                    }
+                    
+                    html += `<tr>
+                        <td>${formattedDate}</td>
+                        <td>${download.download_ip || 'Inconnu'}</td>
+                        <td title="${download.user_agent || 'Inconnu'}">${shortUserAgent}</td>
+                        <td>${download.city || 'Non renseigné'}</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table>';
+                
+                // Ajouter un résumé en bas
+                html += `<div style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 6px; font-size: 13px; color: #6c757d;">
+                    <strong>Résumé :</strong> ${data.length} téléchargement${data.length > 1 ? 's' : ''} enregistré${data.length > 1 ? 's' : ''}
+                </div>`;
+                
+                historyContent.innerHTML = html;
+            }
         })
-        .catch(error => console.error('Erreur:', error));
+        .catch(error => {
+            console.error('Erreur:', error);
+            historyContent.innerHTML = '<div style="text-align: center; padding: 20px; color: #e74c3c;"><p>❌ Erreur lors du chargement de l\'historique</p></div>';
+        });
 }
+
+// CORRECTION: Améliorer la fermeture du modal
+historyCloseBtn.onclick = function() {
+    historyModal.style.display = 'none';
+    document.body.classList.remove('modal-open'); // Réactiver le défilement
+};
 
 // Ajouter cette nouvelle fonction
 function generateNewAuthCode(fileId) {
