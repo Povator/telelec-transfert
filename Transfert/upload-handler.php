@@ -16,6 +16,9 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
+// AJOUT: Définir le fuseau horaire Europe/Paris pour tout le script
+date_default_timezone_set('Europe/Paris');
+
 header('Content-Type: application/json');
 
 // Inclure les utilitaires et le système antivirus
@@ -89,16 +92,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $antivirusStatus = 'false';
                 }
 
+                // CORRECTION: Récupérer la ville lors de l'upload
+                function getCity($ip) {
+                    $apiUrl = "http://ip-api.com/json/" . $ip;
+                    $response = @file_get_contents($apiUrl);
+                    if ($response) {
+                        $data = json_decode($response, true);
+                        return ($data && $data['status'] === 'success') ? $data['city'] : 'Unknown';
+                    }
+                    return 'Unknown';
+                }
+                
+                $userCity = getCity($_SERVER['REMOTE_ADDR']);
+                
                 // Insertion du fichier dans la base de données
+                // CORRECTION: Utiliser date() PHP au lieu de NOW() pour respecter le fuseau horaire
+                $uploadDate = date('Y-m-d H:i:s'); // Utilise le fuseau Europe/Paris défini en haut du fichier
+                
                 $sql = "INSERT INTO files (filename, upload_date, upload_ip, upload_city, download_code, antivirus_status, antivirus_message) 
-                        VALUES (?, NOW(), ?, ?, ?, ?, ?)";
+                        VALUES (?, ?, ?, ?, ?, ?, ?)";
                 $stmt = $conn->prepare($sql);
                 $stmt->execute([
                     $finalName, 
+                    $uploadDate,
                     $_SERVER['REMOTE_ADDR'], 
-                    'Unknown', 
+                    $userCity, // Utiliser la vraie ville au lieu de 'Unknown'
                     $downloadCode,
-                    $antivirusStatus,  // Statut converti en chaîne
+                    $antivirusStatus,
                     $scanResult['message']
                 ]);
 

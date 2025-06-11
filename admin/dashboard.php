@@ -4,6 +4,9 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
     header('Location: /admin/login.php');
     exit;
 }
+
+// AJOUT: Définir le fuseau horaire Europe/Paris pour tout le script
+date_default_timezone_set('Europe/Paris');
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -28,7 +31,6 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
         
         <h1>Liste des fichiers :</h1>
         <?php
-            date_default_timezone_set('Europe/Paris');
             $host = 'db'; // Le nom du service dans le docker-compose
             $db = 'telelec';
             $user = 'telelecuser';
@@ -38,7 +40,7 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                 $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
                 $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-                // Modifier la requête SQL pour inclure la ville de l'auteur depuis les logs
+                // Corriger la requête pour utiliser upload_city au lieu de chercher dans file_logs
                 $sql = "SELECT f.*, 
                         (SELECT COUNT(*) FROM download_history WHERE file_id = f.id) as download_count,
                         dac.auth_code,
@@ -48,7 +50,7 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                         dh.user_agent,
                         dh.city,
                         f.upload_ip as author_ip,
-                        (SELECT city FROM file_logs WHERE file_id = f.id AND action_type = 'upload_complete' LIMIT 1) as author_city
+                        f.upload_city as author_city
                         FROM files f
                         LEFT JOIN download_auth_codes dac ON f.id = dac.file_id 
                             AND dac.expiration_date > NOW() 
@@ -103,11 +105,15 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                     foreach ($files as $file) {
                         echo "<tr data-id='" . htmlspecialchars((string)$file['id']) . "'>";
                         // Ajouter la case à cocher
-                        echo "<td><input type='checkbox' class='file-checkbox' value='" . (int)$file['id'] . "' onchange='updateDeleteButton()'></td>";
-                        echo "<td>" . htmlspecialchars((string)$file['id']) . "</td>";
-                        echo "<td title='" . htmlspecialchars((string)$file['filename']) . "' class='truncate'>" . htmlspecialchars((string)$file['filename']) . "</td>";
-                        echo "<td>" . (new DateTime($file['upload_date']))->format('d/m/Y H:i') . "</td>";
-                        echo "<td>" . htmlspecialchars((string)$file['upload_ip']) . "</td>";
+                        echo "<td><input type='checkbox' class='file-checkbox' value='" . (int)$file['id'] . "'></td>";
+                        echo "<td>" . (int)$file['id'] . "</td>";
+                        echo "<td class='truncate' title='" . htmlspecialchars((string)$file['filename']) . "'>" . htmlspecialchars((string)$file['filename']) . "</td>";
+                        
+                        // CORRECTION: Utiliser DateTime pour formater correctement la date avec le fuseau horaire de Paris
+                        $uploadDate = new DateTime($file['upload_date']);
+                        echo "<td>" . $uploadDate->format('d/m/Y H:i') . "</td>";
+                        
+                        echo "<td>" . htmlspecialchars((string)($file['author_ip'] ?? 'Non renseigné')) . "</td>";
                         echo "<td>" . htmlspecialchars((string)($file['author_city'] ?? 'Non renseigné')) . "</td>";
                         echo "<td>" . htmlspecialchars((string)$file['download_code']) . " <a href='/download.php?code=" . htmlspecialchars((string)$file['download_code']) . "' target='_blank' class='download-link'>🔗</a></td>";
                         echo "<td>" . htmlspecialchars((string)($file['auth_code'] ?? 'Code expiré')) . "</td>";
@@ -158,14 +164,6 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
                 echo "<p>Erreur de connexion à la base de données : " . $e->getMessage() . "</p>";
             }
         ?>
-        
-        <!-- Ajouter à côté des autres filtres -->
-        <div class="btn-group mb-3">
-            <a href="?filter=all" class="btn btn-outline-secondary <?= (!isset($_GET['filter']) || $_GET['filter'] == 'all') ? 'active' : '' ?>">Tous</a>
-            <a href="?filter=clean" class="btn btn-outline-success <?= (isset($_GET['filter']) && $_GET['filter'] == 'clean') ? 'active' : '' ?>">Fichiers sains</a>
-            <a href="?filter=warning" class="btn btn-outline-warning <?= (isset($_GET['filter']) && $_GET['filter'] == 'warning') ? 'active' : '' ?>">Avertissements</a>
-            <a href="?filter=virus" class="btn btn-outline-danger <?= (isset($_GET['filter']) && $_GET['filter'] == 'virus') ? 'active' : '' ?>">Virus</a>
-        </div>
         
         <!-- DÉPLACER CES BOUTONS ICI, AVANT LA FERMETURE DE MAIN -->
         <div class="admin-controls">

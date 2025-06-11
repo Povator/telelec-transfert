@@ -1,5 +1,6 @@
 <?php
 session_start();
+// Fuseau horaire déjà défini ici, mais on s'assure qu'il est au bon endroit (tout en haut)
 date_default_timezone_set('Europe/Paris');
 if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
     header('Location: /admin/login.php');

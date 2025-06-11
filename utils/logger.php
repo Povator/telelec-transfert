@@ -28,7 +28,7 @@ class FileLogger {
                 $city,
                 $status,
                 $details,
-                $actionDate // Ajouter la date générée en PHP
+                $actionDate // Utiliser la date générée en PHP
             ]);
         } catch (Exception $e) {
             error_log("Erreur de logging : " . $e->getMessage());

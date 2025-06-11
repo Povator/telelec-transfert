@@ -3,6 +3,9 @@ ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
 
+// AJOUT: Définir le fuseau horaire Europe/Paris pour tout le script
+date_default_timezone_set('Europe/Paris');
+
 if (!isset($_GET['code'])) {
     die('Code de téléchargement manquant');
 }
@@ -69,6 +72,11 @@ try {
                     $_SERVER['HTTP_USER_AGENT'] ?? 'Inconnu',
                     $city
                 ]);
+                
+                // AJOUT: Mettre à jour le statut "téléchargé" dans la table files
+                $updateDownloadedSql = "UPDATE files SET downloaded = TRUE WHERE id = ?";
+                $updateStmt = $conn->prepare($updateDownloadedSql);
+                $updateStmt->execute([$file['id']]);
 
                 // Headers pour le téléchargement
                 header('Content-Type: application/octet-stream');
