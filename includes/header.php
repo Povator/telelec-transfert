@@ -32,3 +32,13 @@ date_default_timezone_set('Europe/Paris');
             <?php endif; ?>
         </div>
     </nav>
+
+    <?php if (isset($_SESSION['admin']) && $_SESSION['admin'] === true): ?>
+    <nav class="admin-nav">
+        <a href="/admin/dashboard.php">📊 Dashboard</a>
+        <a href="/admin/logs.php">📝 Logs</a>
+        <a href="/admin/security_threats.php">🚨 Menaces</a> <!-- NOUVEAU -->
+        <a href="/admin/antivirus_details.php">🦠 Antivirus</a>
+        <a href="/admin/logout.php">🚪 Déconnexion</a>
+    </nav>
+    <?php endif; ?>

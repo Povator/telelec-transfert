@@ -28,64 +28,35 @@ date_default_timezone_set('Europe/Paris');
 
 header('Content-Type: application/json');
 
-// Inclure les utilitaires et le système antivirus
-require_once __DIR__ . '/../includes/file_utils.php';
-require_once __DIR__ . '/../includes/antivirus.php';
-
 // Traitement de la requête
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    /** @var string $targetDir Répertoire de destination des fichiers */
-    $targetDir = __DIR__ . "/../uploads/";
-
-    // Crée le répertoire d'uploads s'il n'existe pas
-    if (!file_exists($targetDir)) {
-        mkdir($targetDir, 0777, true);
-    }
-
-    // Vérifie si un fichier a été envoyé
-    if (!isset($_FILES["fileToUpload"])) {
-        echo json_encode(['status' => 'error', 'message' => 'Aucun fichier reçu']);
-        exit;
-    }
-
-    // Récupère le nom original et génère un nom unique
-    $originalName = $_FILES["fileToUpload"]["name"];
-    $uniqueFile = generateUniqueFilename($targetDir, $originalName);
-    $finalName = $uniqueFile['filename'];
-    $targetFile = $uniqueFile['filepath'];
-
-    // NOUVEAU : Scan en streaming pendant le déplacement
     $tempFilePath = $_FILES["fileToUpload"]["tmp_name"];
+    $originalName = $_FILES["fileToUpload"]["name"];
+    $finalName = uniqid() . '_' . $originalName;
+    $targetFile = __DIR__ . '/../uploads/' . $finalName;
     
     try {
-        // INNOVATION: Scan et déplacement en une seule opération
-        $streamScanResult = moveAndScanFile($tempFilePath, $targetFile);
+        // Version simple sans includes
+        $scanResult = moveAndScanFileSimple($tempFilePath, $targetFile);
         
-        if ($streamScanResult['status'] === false) {
-            // Virus détecté pendant le transfert - supprimer immédiatement
-            if (file_exists($targetFile)) {
-                unlink($targetFile);
-            }
+        if ($scanResult['status'] === false) {
             echo json_encode([
                 'status' => 'error',
-                'message' => $streamScanResult['message']
+                'message' => $scanResult['message'],
+                'security_alert' => true
             ]);
             exit;
         }
         
-        // Le fichier est déjà en place et pré-scanné !
-        // Insertion IMMÉDIATE en base
+        // Insertion en base
         $conn = new PDO("mysql:host=db;dbname=telelec;charset=utf8", 'telelecuser', 'userpassword');
         $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
-        date_default_timezone_set('Europe/Paris');
         $uploadDate = date('Y-m-d H:i:s');
         $downloadCode = generateDownloadCode();
         $userCity = getCity($_SERVER['REMOTE_ADDR']);
         
-        // Déterminer le statut selon le résultat du scan
-        $antivirusStatus = $streamScanResult['status'] === true ? 'true' : 
-                          ($streamScanResult['status'] === 'pending' ? 'pending' : 'warning');
+        $antivirusStatus = $scanResult['status'] === true ? 'true' : 'warning';
         
         $sql = "INSERT INTO files (filename, upload_date, upload_ip, upload_city, download_code, antivirus_status, antivirus_message) 
                 VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -97,15 +68,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userCity,
             $downloadCode,
             $antivirusStatus,
-            $streamScanResult['message']
+            $scanResult['message']
         ]);
 
         $fileId = $conn->lastInsertId();
         
-        // Si scan en attente, lancer le scan complet en arrière-plan
-        if ($streamScanResult['status'] === 'pending') {
-            exec("php " . __DIR__ . "/../admin/background_scan.php {$fileId} " . escapeshellarg($targetFile) . " > /dev/null 2>&1 &");
-        }
+        // AJOUT: Logger l'analyse antivirus pour tous les fichiers
+        $logSql = "INSERT INTO file_logs (file_id, action_type, action_date, user_ip, status, details) 
+                   VALUES (?, 'antivirus_scan', NOW(), ?, ?, ?)";
+        $logStmt = $conn->prepare($logSql);
+        $logStmt->execute([
+            $fileId,
+            $_SERVER['REMOTE_ADDR'],
+            $antivirusStatus,
+            "Analyse antivirus: {$scanResult['message']}"
+        ]);
+        
+        // Log success
+        error_log("UPLOAD SUCCESS: ID={$fileId}, filename={$finalName}, scan_status={$antivirusStatus}");
 
         echo json_encode([
             'status' => 'success',
@@ -117,7 +97,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
     } catch (Exception $e) {
-        // Nettoyer en cas d'erreur
         if (file_exists($targetFile)) {
             unlink($targetFile);
         }
@@ -135,117 +114,129 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
 }
 
-// NOUVELLES FONCTIONS À AJOUTER à la fin du fichier :
-
-function moveAndScanFile($source, $destination) {
-    $fileSize = filesize($source);
-    $sourceHandle = fopen($source, 'rb');
-    $destHandle = fopen($destination, 'wb');
-    
-    if (!$sourceHandle || !$destHandle) {
-        return ['status' => false, 'message' => 'Impossible d\'ouvrir les fichiers'];
-    }
-    
-    $chunkSize = 1024 * 1024; // 1MB chunks
-    $totalSize = 0;
-    
-    // Déplacer le fichier chunk par chunk avec scan basique
-    while (!feof($sourceHandle)) {
-        $chunk = fread($sourceHandle, $chunkSize);
-        if ($chunk === false) break;
-        
-        fwrite($destHandle, $chunk);
-        
-        // Scan TRÈS basique seulement pour les menaces évidentes
-        $chunkResult = scanChunkBasic($chunk, $totalSize);
-        if (!$chunkResult['safe']) {
-            fclose($sourceHandle);
-            fclose($destHandle);
-            unlink($destination);
-            return [
-                'status' => false,
-                'message' => "🚨 MENACE DÉTECTÉE: " . $chunkResult['threat']
-            ];
-        }
-        
-        $totalSize += strlen($chunk);
-    }
-    
-    fclose($sourceHandle);
-    fclose($destHandle);
-    
-    // NOUVELLE LOGIQUE: Plus intelligent selon la taille
-    $sizeMB = $fileSize / (1024 * 1024);
-    
-    if ($sizeMB <= 1) {
-        // Fichiers ≤ 1MB : Scan ClamAV immédiat ultra-rapide
-        try {
-            $clamResult = scanFileUltraQuick($destination);
-            return [
-                'status' => $clamResult['status'],
-                'message' => $clamResult['message'],
-                'scan_type' => 'immediate'
-            ];
-        } catch (Exception $e) {
-            // Si échec ClamAV, accepter directement les petits fichiers
-            return [
-                'status' => 'true',
-                'message' => '✅ Petit fichier accepté directement',
-                'scan_type' => 'bypass'
-            ];
-        }
-    } else {
-        // Fichiers > 1MB : Toujours accepter et scanner en arrière-plan
-        return [
-            'status' => 'pending',
-            'message' => '⏳ Fichier en cours d\'analyse...',
-            'scan_type' => 'deferred'
-        ];
-    }
-}
-
-// Nouvelle fonction : Scan ClamAV ultra-rapide (1 seconde max)
-function scanFileUltraQuick($filepath) {
-    $escapedPath = escapeshellarg($filepath);
-    $command = "timeout 1 clamscan --no-summary --stdout --max-filesize=1M {$escapedPath} 2>&1";
-    
-    $startTime = microtime(true);
-    exec($command, $scanOutput, $scanCode);
-    $executionTime = microtime(true) - $startTime;
-    
-    if ($scanCode === 0) {
-        return [
-            'status' => true,
-            'message' => '✅ Aucune menace détectée (scan rapide)',
-            'execution_time' => round($executionTime, 2)
-        ];
-    } elseif ($scanCode === 1) {
-        $virusInfo = implode(' ', $scanOutput);
+// FONCTIONS INTÉGRÉES (pas de doublons)
+function moveAndScanFileSimple($source, $destination) {
+    if (!move_uploaded_file($source, $destination)) {
         return [
             'status' => false,
-            'message' => "🚨 VIRUS DÉTECTÉ: " . $virusInfo,
-            'execution_time' => round($executionTime, 2)
+            'message' => 'Erreur lors du déplacement du fichier'
         ];
-    } else {
-        throw new Exception('Scan timeout');
-    }
-}
-
-function scanChunkBasic($chunk, $position) {
-    // Détections UNIQUEMENT pour les menaces très évidentes
-    if ($position === 0 && substr($chunk, 0, 5) === 'X5O!P') {
-        return ['safe' => false, 'threat' => 'Test EICAR'];
     }
     
-    // Scan pour du code PHP malveillant uniquement
-    if (stripos($chunk, '<?php') !== false && stripos($chunk, 'eval(') !== false) {
-        return ['safe' => false, 'threat' => 'Code PHP suspect détecté'];
+    // SCAN BASIQUE D'ABORD (priorité EICAR) - OBLIGATOIRE
+    $basicResult = scanFileBasicIntegrated($destination);
+    
+    // CORRECTION: Si virus détecté par scan basique, ARRÊTER IMMÉDIATEMENT
+    if ($basicResult['status'] === false) {
+        unlink($destination);
+        error_log("VIRUS DÉTECTÉ par scan basique et fichier supprimé: " . $destination);
+        return $basicResult; // RETOURNER ICI, pas de ClamAV
     }
     
-    return ['safe' => true];
+    // Seulement si pas de virus détecté, essayer ClamAV
+    try {
+        $escapedPath = escapeshellarg($destination);
+        $command = "timeout 5 clamscan --no-summary --stdout {$escapedPath} 2>&1";
+        
+        exec($command, $scanOutput, $scanCode);
+        
+        if ($scanCode === 1) {
+            // ClamAV a détecté un virus
+            unlink($destination);
+            $virusInfo = implode(' ', $scanOutput);
+            logVirusAttempt($destination, "ClamAV: " . $virusInfo);
+            return [
+                'status' => false,
+                'message' => "🚨 VIRUS DÉTECTÉ par ClamAV: {$virusInfo}"
+            ];
+        } elseif ($scanCode === 0) {
+            // ClamAV dit que c'est clean ET scan basique aussi
+            return [
+                'status' => true,
+                'message' => '✅ Fichier vérifié et sain (ClamAV + Scan basique)'
+            ];
+        }
+    } catch (Exception $e) {
+        error_log("ClamAV indisponible: " . $e->getMessage());
+    }
+    
+    // Si ClamAV échoue, retourner le résultat du scan basique (qui est clean)
+    return $basicResult;
 }
 
-// AJOUTER CETTE FONCTION MANQUANTE
+function scanFileBasicIntegrated($filepath) {
+    $fileSize = filesize($filepath);
+    if ($fileSize === false) {
+        return ['status' => false, 'message' => 'Impossible de lire le fichier'];
+    }
+    
+    $handle = fopen($filepath, 'rb');
+    if (!$handle) {
+        return ['status' => false, 'message' => 'Impossible d\'ouvrir le fichier'];
+    }
+    
+    // Lire TOUT le fichier pour EICAR (c'est petit)
+    $content = fread($handle, $fileSize);
+    fclose($handle);
+    
+    // CORRECTION: Signatures EICAR COMPLÈTES et EXACTES
+    $eicarSignatures = [
+        'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*',
+        'EICAR-STANDARD-ANTIVIRUS-TEST-FILE',
+        'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR', // Version avec double backslash
+        'EICAR-STANDARD-ANTIVIRUS-TEST'
+    ];
+    
+    // DEBUG: Afficher le contenu pour vérifier
+    error_log("SCAN DEBUG: Contenu fichier (100 premiers chars): " . substr($content, 0, 100));
+    
+    foreach ($eicarSignatures as $signature) {
+        if (stripos($content, $signature) !== false) {
+            error_log("SCAN DEBUG: EICAR DÉTECTÉ avec signature: " . $signature);
+            logVirusAttempt($filepath, 'Fichier test EICAR détecté');
+            return [
+                'status' => false,  // S'assurer que c'est bien 'false'
+                'message' => '🚨 VIRUS DÉTECTÉ: Fichier test EICAR'
+            ];
+        }
+    }
+    
+    // Test encore plus simple : chercher juste "EICAR"
+    if (stripos($content, 'EICAR') !== false) {
+        error_log("SCAN DEBUG: EICAR trouvé dans le contenu !");
+        logVirusAttempt($filepath, 'Fichier contenant EICAR détecté');
+        return [
+            'status' => false,  // S'assurer que c'est bien 'false'
+            'message' => '🚨 VIRUS DÉTECTÉ: Fichier test EICAR (simple)'
+        ];
+    }
+    
+    // Patterns malveillants basiques
+    $malwarePatterns = [
+        '<?php' => 'Code PHP potentiellement dangereux',
+        'eval(' => 'Code d\'évaluation suspect',
+        'base64_decode(' => 'Décodage base64 suspect',
+        'system(' => 'Commande système dangereuse',
+        'exec(' => 'Exécution de commande dangereuse',
+        'shell_exec(' => 'Exécution shell dangereuse'
+    ];
+    
+    foreach ($malwarePatterns as $pattern => $description) {
+        if (stripos($content, $pattern) !== false) {
+            logVirusAttempt($filepath, $description);
+            return [
+                'status' => false,
+                'message' => "🚨 MENACE DÉTECTÉE: {$description}"
+            ];
+        }
+    }
+    
+    return [
+        'status' => true,
+        'message' => '✅ Fichier accepté (scan basique)'
+    ];
+}
+
 function generateDownloadCode($length = 8) {
     $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     $code = '';
@@ -255,7 +246,6 @@ function generateDownloadCode($length = 8) {
     return $code;
 }
 
-// AJOUTER CETTE FONCTION MANQUANTE
 function getCity($ip) {
     if ($ip === '127.0.0.1' || $ip === '::1') {
         return 'Local';
@@ -268,5 +258,31 @@ function getCity($ip) {
         return ($data && $data['status'] === 'success') ? $data['city'] : 'Inconnue';
     }
     return 'Inconnue';
+}
+
+// Améliorer la fonction de log :
+function logVirusAttempt($filepath, $threat) {
+    try {
+        $conn = new PDO("mysql:host=db;dbname=telelec;charset=utf8", 'telelecuser', 'userpassword');
+        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        // CORRECTION: Utiliser 'virus_detected' au lieu de 'virus_attempt'
+        $sql = "INSERT INTO file_logs (action_type, action_date, user_ip, status, details) 
+                VALUES ('virus_detected', NOW(), ?, 'blocked', ?)";
+        $stmt = $conn->prepare($sql);
+        $success = $stmt->execute([
+            $_SERVER['REMOTE_ADDR'],
+            "VIRUS DÉTECTÉ et bloqué: " . basename($filepath) . " - Menace: " . $threat
+        ]);
+        
+        if ($success) {
+            error_log("VIRUS LOGGED: " . $threat . " pour fichier " . basename($filepath));
+        } else {
+            error_log("ERREUR LOG VIRUS: échec insertion en base");
+        }
+        
+    } catch (Exception $e) {
+        error_log("ERREUR LOG VIRUS: " . $e->getMessage());
+    }
 }
 ?>

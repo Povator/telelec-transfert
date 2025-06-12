@@ -243,43 +243,18 @@ button[type="submit"]:hover {
     background-color: #c0392b;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+    animation: pulse 2s infinite;
 }
 
-/* Animation de succès pour le bouton copier */
+/* Animation pour le bouton de copie */
 .download-btn.copying {
     background-color: #28a745 !important;
     transform: scale(1.05);
     box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    transition: all 0.3s ease;
 }
 
-/* Animation de pulsation lors de la copie */
-.download-btn.copying::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    animation: ripple 0.6s linear;
-}
-
-@keyframes ripple {
-    0% {
-        width: 0;
-        height: 0;
-        opacity: 1;
-    }
-    100% {
-        width: 300px;
-        height: 300px;
-        opacity: 0;
-    }
-}
-
-/* Notification popup */
+/* Notification popup pour la copie */
 .copy-notification {
     position: fixed;
     top: 20px;
@@ -288,15 +263,12 @@ button[type="submit"]:hover {
     color: white;
     padding: 15px 25px;
     border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(40, 167, 69, 0.3);
+    box-shadow: 0 4px 20px rgba(40, 167, 69, 0.3);
     z-index: 10000;
-    font-weight: 600;
+    font-weight: bold;
     font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(10px);
+    min-width: 250px;
+    text-align: center;
 }
 
 .copy-notification::before {
@@ -306,50 +278,62 @@ button[type="submit"]:hover {
 
 /* Animations pour la notification */
 .copy-notification.slide-in {
-    animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    animation: slideInFromRight 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 .copy-notification.slide-out {
-    animation: slideOutRight 0.3s ease-in;
+    animation: slideOutToRight 0.3s ease-in;
 }
 
-@keyframes slideInRight {
-    from { 
-        transform: translateX(100%) scale(0.8);
+.copy-notification.bounce {
+    animation: bounceEffect 0.6s ease-out;
+}
+
+@keyframes slideInFromRight {
+    0% {
+        transform: translateX(400px);
         opacity: 0;
     }
-    to { 
-        transform: translateX(0) scale(1);
+    100% {
+        transform: translateX(0);
         opacity: 1;
     }
 }
 
-@keyframes slideOutRight {
-    from { 
-        transform: translateX(0) scale(1);
+@keyframes slideOutToRight {
+    0% {
+        transform: translateX(0);
         opacity: 1;
     }
-    to { 
-        transform: translateX(120%) scale(0.9);
+    100% {
+        transform: translateX(400px);
         opacity: 0;
     }
 }
 
-/* Animation de rebond pour attirer l'attention */
-@keyframes bounce {
+@keyframes bounceEffect {
     0%, 20%, 50%, 80%, 100% {
         transform: translateY(0);
     }
     40% {
-        transform: translateY(-4px);
+        transform: translateY(-10px);
     }
     60% {
-        transform: translateY(-2px);
+        transform: translateY(-5px);
     }
 }
 
-.copy-notification.bounce {
-    animation: bounce 0.8s ease;
+/* Animation de pulsation pour attirer l'attention */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+    }
+    50% {
+        box-shadow: 0 8px 25px rgba(231, 76, 60, 0.5);
+    }
+    100% {
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+    }
 }
 
 @media (max-width: 768px) {
@@ -382,6 +366,68 @@ button[type="submit"]:hover {
 
 .cancel-btn:hover {
     background-color: #c0392b;
+}
+
+.quarantine-notice {
+    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+    border: 2px solid #f39c12;
+    border-radius: 12px;
+    padding: 25px;
+    margin: 20px 0;
+    box-shadow: 0 4px 15px rgba(243, 156, 18, 0.2);
+}
+
+.quarantine-notice h3 {
+    color: #d68910;
+    margin: 0 0 15px 0;
+    font-size: 1.3em;
+}
+
+.quarantine-info {
+    background: rgba(255, 255, 255, 0.7);
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.quarantine-info ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.contact-admin {
+    text-align: center;
+    margin-top: 20px;
+    padding: 10px;
+    background: rgba(243, 156, 18, 0.1);
+    border-radius: 6px;
+}
+
+.security-alert {
+    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+    border: 2px solid #dc3545;
+    border-radius: 12px;
+    padding: 25px;
+    margin: 20px 0;
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.2);
+}
+
+.security-alert h3 {
+    color: #721c24;
+    margin: 0 0 15px 0;
+    font-size: 1.3em;
+}
+
+.security-info {
+    background: rgba(255, 255, 255, 0.8);
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.security-info ul {
+    margin: 10px 0;
+    padding-left: 20px;
 }
 
 

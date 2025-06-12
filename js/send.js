@@ -100,19 +100,24 @@ form.addEventListener('submit', async function(e) {
             });
 
             xhr.onload = function() {
-                cancelBtn.style.display = 'none'; // 👈 Cache le bouton après succès
+                cancelBtn.style.display = 'none';
                 if (xhr.status === 200) {
+                    console.log('Réponse brute du serveur:', xhr.responseText); // DEBUG
                     try {
                         const response = JSON.parse(xhr.responseText);
+                        console.log('Réponse parsée:', response); // DEBUG
                         if (response.status === 'success') {
                             resolve(response);
                         } else {
                             reject(new Error(response.message || 'Erreur lors de l\'upload'));
                         }
                     } catch (e) {
+                        console.error('Erreur parsing JSON:', e); // DEBUG
+                        console.error('Contenu de la réponse:', xhr.responseText); // DEBUG
                         reject(new Error('Réponse du serveur invalide'));
                     }
                 } else {
+                    console.error('Status HTTP:', xhr.status); // DEBUG
                     reject(new Error('Problème de connexion au serveur'));
                 }
             };
@@ -133,31 +138,50 @@ form.addEventListener('submit', async function(e) {
             xhr.send(formData);
         });
 
+        // Dans la section de traitement des résultats, ajouter du debug :
         if (result.status === 'success') {
-            if (result.scan_status === 'pending') {
-                // Afficher l'état d'analyse
-                uploadResult.innerHTML = `
-                    <div class="upload-success">
-                        <h3>⏳ Upload terminé - Analyse en cours...</h3>
-                        <div class="scan-progress">
-                            <div class="scan-spinner"></div>
-                            <p id="scanStatus">🔍 Analyse antivirus en cours...</p>
-                        </div>
-                        <div class="file-details">
-                            <p><strong>📄 Fichier :</strong> ${result.original}</p>
-                            <p><strong>📦 Taille :</strong> ${formatFileSize(selectedFile.size)}</p>
-                        </div>
-                        <p class="scan-note">⚠️ Le lien de téléchargement sera disponible après validation antivirus</p>
+            console.log('Upload réussi:', result); // Debug
+            proceedToFinalization(result);
+        } else if (result.status === 'quarantine') {
+            console.log('Fichier en quarantaine:', result); // Debug
+            // Fichier en quarantaine
+            uploadResult.innerHTML = `
+                <div class="quarantine-notice">
+                    <h3>🔒 Fichier mis en quarantaine</h3>
+                    <p>${result.message}</p>
+                    <div class="quarantine-info">
+                        <p><strong>📋 Que se passe-t-il maintenant ?</strong></p>
+                        <ul>
+                            <li>Votre fichier a été placé en quarantaine pour vérification</li>
+                            <li>Un administrateur va examiner le fichier</li>
+                            <li>Vous serez contacté avec la décision finale</li>
+                            <li>Cette mesure protège tous les utilisateurs</li>
+                        </ul>
                     </div>
-                `;
-                
-                // Vérifier le statut toutes les 2 secondes
-                checkScanStatus(result.file_id);
-            } else {
-                // Scan terminé immédiatement - procéder à la finalisation
-                proceedToFinalization(result);
-            }
+                    <div class="contact-admin">
+                        <p>🔗 <strong>Besoin d'aide ?</strong> Contactez l'administrateur</p>
+                    </div>
+                </div>
+            `;
+        } else if (result.security_alert) {
+            console.log('Alerte sécurité:', result); // Debug
+            // Virus détecté
+            uploadResult.innerHTML = `
+                <div class="security-alert">
+                    <h3>🚨 Upload bloqué</h3>
+                    <p>${result.message}</p>
+                    <div class="security-info">
+                        <p><strong>⚠️ Pourquoi ce blocage ?</strong></p>
+                        <ul>
+                            <li>Le fichier contient du contenu potentiellement dangereux</li>
+                            <li>Cette protection préserve la sécurité de tous</li>
+                            <li>Vérifiez votre fichier avec un antivirus local</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
         } else {
+            console.error('Erreur upload:', result); // Debug
             throw new Error(result.message || 'Erreur lors de l\'upload');
         }
     } catch (error) {

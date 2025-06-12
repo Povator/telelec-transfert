@@ -65,11 +65,11 @@ try {
     $stmt->execute();
     $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Analyses Antivirus
+    // Analyses Antivirus - CORRECTION
     $sql = "SELECT l.*, f.filename, l.action_date, l.details 
             FROM file_logs l 
             LEFT JOIN files f ON l.file_id = f.id 
-            WHERE l.action_type IN ('antivirus_scan', 'virus_detected') 
+            WHERE l.action_type IN ('antivirus_scan', 'virus_detected', 'virus_attempt') 
             ORDER BY l.action_date DESC 
             LIMIT 50";
     $stmt = $conn->prepare($sql);
