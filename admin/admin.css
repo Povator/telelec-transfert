@@ -666,3 +666,63 @@ body.modal-open {
         padding: 8px 6px;
     }
 }
+
+/* Styles spéciaux pour les codes A2F */
+.auth-code-cell {
+    background-color: #fff3cd !important;
+    border: 2px solid #ffc107 !important;
+    position: relative;
+}
+
+.auth-code-value {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #856404;
+    background-color: #fff3cd;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #ffeaa7;
+}
+
+.copy-auth-btn {
+    background: #ffc107;
+    border: none;
+    border-radius: 3px;
+    padding: 2px 6px;
+    margin-left: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #856404;
+    transition: all 0.2s;
+}
+
+.copy-auth-btn:hover {
+    background: #e0a800;
+    transform: scale(1.1);
+}
+
+.no-code {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Animation pour attirer l'attention sur les codes A2F */
+.auth-code-cell::before {
+    content: "🔐";
+    position: absolute;
+    left: -15px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+}
+
+/* Mise en évidence des codes A2F récents */
+.auth-code-cell.recent {
+    animation: highlight-auth 3s ease-in-out;
+}
+
+@keyframes highlight-auth {
+    0%, 100% { background-color: #fff3cd; }
+    50% { background-color: #ffecb5; }
+}

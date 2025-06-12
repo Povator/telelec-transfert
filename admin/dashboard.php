@@ -116,7 +116,17 @@ date_default_timezone_set('Europe/Paris');
                         echo "<td>" . htmlspecialchars((string)($file['author_ip'] ?? 'Non renseigné')) . "</td>";
                         echo "<td>" . htmlspecialchars((string)($file['author_city'] ?? 'Non renseigné')) . "</td>";
                         echo "<td>" . htmlspecialchars((string)$file['download_code']) . " <a href='/download.php?code=" . htmlspecialchars((string)$file['download_code']) . "' target='_blank' class='download-link'>🔗</a></td>";
-                        echo "<td>" . htmlspecialchars((string)($file['auth_code'] ?? 'Code expiré')) . "</td>";
+                        
+                        // Code A2F avec mise en évidence
+                        if ($file['auth_code']) {
+                            echo "<td class='auth-code-cell'>
+                                    <span class='auth-code-value'>" . htmlspecialchars((string)$file['auth_code']) . "</span>
+                                    <button class='copy-auth-btn' onclick='copyAuthCode(\"" . htmlspecialchars((string)$file['auth_code']) . "\")'>📋</button>
+                                  </td>";
+                        } else {
+                            echo "<td><span class='no-code'>Code expiré</span></td>";
+                        }
+                        
                         echo "<td>" . ($file['expiration_date'] ? (new DateTime($file['expiration_date']))->format('d/m/Y H:i') : '-') . "</td>";
                         echo "<td>" . ($file['downloaded'] ? 'Oui' : 'Non') . "</td>";
                         echo "<td>" . htmlspecialchars((string)($file['download_ip'] ?? 'Non téléchargé')) . "</td>";
@@ -164,6 +174,25 @@ date_default_timezone_set('Europe/Paris');
                 echo "<p>Erreur de connexion à la base de données : " . $e->getMessage() . "</p>";
             }
         ?>
+        
+        <!-- AJOUTER cette section d'aide avant la table -->
+        <div class="admin-help" style="background-color: #e7f3ff; border: 1px solid #bee5eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="color: #0c5460; margin-top: 0;">🔐 Gestion des codes A2F</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <h4>📋 Copier un code A2F :</h4>
+                    <p>Cliquez sur l'icône 📋 à côté du code pour le copier. Communiquez-le au destinataire par un canal sécurisé (SMS, appel, etc.).</p>
+                </div>
+                <div>
+                    <h4>🔄 Générer un nouveau code :</h4>
+                    <p>Utilisez le bouton "Générer code A2F" pour créer un nouveau code si l'ancien est compromis ou expiré.</p>
+                </div>
+            </div>
+            <div style="margin-top: 15px; padding: 10px; background-color: #fff3cd; border-radius: 4px;">
+                <strong>⚠️ Sécurité :</strong> Les codes A2F ne sont plus visibles lors de l'upload pour renforcer la sécurité. 
+                Seuls les administrateurs y ont accès via ce dashboard.
+            </div>
+        </div>
         
         <!-- DÉPLACER CES BOUTONS ICI, AVANT LA FERMETURE DE MAIN -->
         <div class="admin-controls">

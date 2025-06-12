@@ -231,19 +231,125 @@ button[type="submit"]:hover {
     border-radius: 5px;
     text-decoration: none;
     font-weight: bold;
-    transition: background-color 0.3s;
+    transition: all 0.3s ease;
     border: none;
     font-size: 1.1rem;
     cursor: pointer;
-    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
 }
 
-.share-instructions {
-    background-color: #fffde7;
-    padding: 10px 15px;
-    border-left: 4px solid #fbc02d;
-    border-radius: 4px;
-    font-size: 0.95em;
+.download-btn:hover {
+    background-color: #c0392b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+/* Animation de succès pour le bouton copier */
+.download-btn.copying {
+    background-color: #28a745 !important;
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+/* Animation de pulsation lors de la copie */
+.download-btn.copying::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: ripple 0.6s linear;
+}
+
+@keyframes ripple {
+    0% {
+        width: 0;
+        height: 0;
+        opacity: 1;
+    }
+    100% {
+        width: 300px;
+        height: 300px;
+        opacity: 0;
+    }
+}
+
+/* Notification popup */
+.copy-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(40, 167, 69, 0.3);
+    z-index: 10000;
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+}
+
+.copy-notification::before {
+    content: '✅';
+    font-size: 18px;
+}
+
+/* Animations pour la notification */
+.copy-notification.slide-in {
+    animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.copy-notification.slide-out {
+    animation: slideOutRight 0.3s ease-in;
+}
+
+@keyframes slideInRight {
+    from { 
+        transform: translateX(100%) scale(0.8);
+        opacity: 0;
+    }
+    to { 
+        transform: translateX(0) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from { 
+        transform: translateX(0) scale(1);
+        opacity: 1;
+    }
+    to { 
+        transform: translateX(120%) scale(0.9);
+        opacity: 0;
+    }
+}
+
+/* Animation de rebond pour attirer l'attention */
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-4px);
+    }
+    60% {
+        transform: translateY(-2px);
+    }
+}
+
+.copy-notification.bounce {
+    animation: bounce 0.8s ease;
 }
 
 @media (max-width: 768px) {
