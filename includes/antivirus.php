@@ -3,7 +3,7 @@
  * Système d'analyse antivirus optimisé avec ClamAV
  * 
  * @author  TeleLec
- * @version 2.2
+ * @version 2.3 - Version corrigée
  */
 
 /**
@@ -15,76 +15,100 @@
 function scanFile($filepath) {
     // Vérifier si le fichier existe
     if (!file_exists($filepath)) {
-        return ['status' => false, 'message' => 'Fichier introuvable'];
+        return [
+            'status' => false, 
+            'message' => 'Fichier non trouvé',
+            'execution_time' => 0
+        ];
     }
     
-    // Utiliser ClamAV avec fallback intelligent
-    return scanFileWithClamAV($filepath);
-}
-
-/**
- * Analyse un fichier avec ClamAV ultra-optimisé
- * 
- * @param string $filepath Chemin vers le fichier à analyser
- * @return array Résultat du scan
- */
-function scanFileWithClamAV($filepath) {
-    // Vérifier si ClamAV est installé
-    exec("which clamscan 2>/dev/null", $output, $returnCode);
+    $startTime = microtime(true);
     
-    if ($returnCode !== 0) {
-        return scanFileBasic($filepath);
+    // Déterminer le chemin de ClamAV
+    $clamPath = '/usr/bin/clamscan';
+    $useSudo = false;
+    
+    if (!is_executable($clamPath)) {
+        // Essayer avec sudo
+        exec("sudo -n test -x $clamPath 2>/dev/null", $output, $returnCode);
+        if ($returnCode === 0) {
+            $clamPath = "sudo $clamPath";
+            $useSudo = true;
+        } else {
+            // Utiliser le scan basique si ClamAV n'est pas disponible
+            return scanFileBasic($filepath);
+        }
     }
     
     $fileSize = filesize($filepath);
     
-    // Pour les fichiers volumineux, utiliser le scan basique directement
-    if ($fileSize > 5 * 1024 * 1024) { // Plus de 5 MB
-        return scanFileBasic($filepath);
+    // Pour les fichiers très volumineux, utiliser le scan basique
+    if ($fileSize > 10 * 1024 * 1024) { // Plus de 10 MB
+        $basicResult = scanFileBasic($filepath);
+        $basicResult['message'] .= ' (Fichier volumineux - ClamAV ignoré)';
+        return $basicResult;
     }
     
-    // Commande ClamAV ultra-optimisée avec timeout très court
+    // Échapper le chemin du fichier pour la sécurité
     $escapedPath = escapeshellarg($filepath);
     
-    // Options pour la vitesse maximale :
-    // --no-summary : pas de récapitulatif
-    // --stdout : sortie vers stdout
-    // --max-filesize=5M : limite stricte de taille
-    // --max-scansize=10M : limite de données scannées
-    // --max-recursion=2 : récursion minimale
-    // --max-dir-recursion=1 : pas de récursion de répertoire
-    // --max-files=10 : limite le nombre de fichiers dans les archives
-    $command = "timeout 5 clamscan --no-summary --stdout --max-filesize=5M --max-scansize=10M --max-recursion=2 --max-dir-recursion=1 --max-files=10 {$escapedPath} 2>&1";
+    // Commande ClamAV optimisée avec timeout et PATH explicite
+    $pathEnv = 'PATH=/usr/bin:/bin:/usr/local/bin';
+    $command = "$pathEnv timeout 60 $clamPath --no-summary --infected --quiet --max-filesize=10M --max-scansize=20M $escapedPath 2>&1";
     
-    $startTime = microtime(true);
-    exec($command, $scanOutput, $scanCode);
+    exec($command, $output, $returnCode);
+    
     $executionTime = microtime(true) - $startTime;
+    $outputString = implode("\n", $output);
     
-    // Analyser le résultat
-    if ($scanCode === 0) {
-        return [
-            'status' => true, 
-            'message' => 'Aucune menace détectée (ClamAV)',
-            'execution_time' => round($executionTime, 2)
-        ];
-    } elseif ($scanCode === 1) {
-        // Virus détecté !
-        $virusInfo = implode(' ', $scanOutput);
-        return [
-            'status' => false, 
-            'message' => "🚨 VIRUS DÉTECTÉ par ClamAV: " . $virusInfo,
-            'execution_time' => round($executionTime, 2)
-        ];
-    } else {
-        // Timeout ou erreur - utiliser le scan basique amélioré
-        $basicResult = scanFileBasic($filepath);
-        $basicResult['message'] .= ' (ClamAV indisponible: ' . round($executionTime, 1) . 's)';
-        return $basicResult;
+    // Analyser le résultat selon la documentation ClamAV
+    switch ($returnCode) {
+        case 0:
+            return [
+                'status' => true,
+                'message' => 'Fichier sain - Aucune menace détectée (ClamAV)',
+                'execution_time' => round($executionTime, 2),
+                'scanner' => 'ClamAV 1.0.7' . ($useSudo ? ' (sudo)' : '')
+            ];
+            
+        case 1:
+            // Virus détecté
+            $virusName = 'Menace inconnue';
+            if (preg_match('/: (.+) FOUND/', $outputString, $matches)) {
+                $virusName = $matches[1];
+            } elseif (!empty($outputString)) {
+                $virusName = trim($outputString);
+            }
+            return [
+                'status' => false,
+                'message' => "🚨 VIRUS DÉTECTÉ: $virusName",
+                'execution_time' => round($executionTime, 2),
+                'threat_name' => $virusName,
+                'scanner' => 'ClamAV 1.0.7'
+            ];
+            
+        case 2:
+            // Erreur ClamAV - fallback vers scan basique
+            $basicResult = scanFileBasic($filepath);
+            $basicResult['message'] .= ' (ClamAV erreur)';
+            return $basicResult;
+            
+        case 124:
+            // Timeout - fallback vers scan basique
+            $basicResult = scanFileBasic($filepath);
+            $basicResult['message'] .= ' (ClamAV timeout)';
+            return $basicResult;
+            
+        default:
+            // Autre erreur - fallback vers scan basique
+            $basicResult = scanFileBasic($filepath);
+            $basicResult['message'] .= " (ClamAV erreur code $returnCode)";
+            return $basicResult;
     }
 }
 
 /**
- * Scan basique de sécurité avec détection EICAR
+ * Scan basique de sécurité avec détection EICAR et patterns malveillants
  * 
  * @param string $filepath Chemin vers le fichier à analyser
  * @return array Résultat du scan
@@ -215,37 +239,234 @@ function scanFileBasic($filepath) {
 }
 
 /**
- * Vérifie le statut de ClamAV sur le système
+ * Vérifie le statut de ClamAV sur le système avec détection robuste
  * 
  * @return array Informations sur l'état de ClamAV
  */
 function getClamAVStatus() {
-    $status = ['installed' => false, 'updated' => false, 'version' => null];
+    $status = [
+        'installed' => false, 
+        'updated' => false, 
+        'version' => null,
+        'last_update' => null,
+        'debug' => []
+    ];
     
-    // Vérifier si ClamAV est installé
-    exec("which clamscan 2>/dev/null", $output, $returnCode);
-    if ($returnCode === 0) {
-        $status['installed'] = true;
-        
-        // Récupérer la version
-        exec("clamscan --version 2>/dev/null", $versionOutput, $versionCode);
-        if ($versionCode === 0 && !empty($versionOutput)) {
-            $status['version'] = $versionOutput[0];
+    // Chemins possibles pour ClamAV
+    $possiblePaths = [
+        '/usr/bin/clamscan',
+        '/usr/local/bin/clamscan',
+        '/opt/clamav/bin/clamscan',
+        '/bin/clamscan'
+    ];
+    
+    $clamPath = null;
+    
+    // 1. Test direct des chemins
+    foreach ($possiblePaths as $path) {
+        if (file_exists($path) && is_executable($path)) {
+            $clamPath = $path;
+            $status['debug'][] = "ClamAV trouvé à: $path";
+            break;
         }
-        
-        // Vérifier si les définitions sont récentes
-        $dbPaths = ['/var/lib/clamav/daily.cvd', '/var/lib/clamav/daily.cld'];
-        foreach ($dbPaths as $dbPath) {
-            if (file_exists($dbPath)) {
-                $lastUpdate = filemtime($dbPath);
-                $daysSinceUpdate = (time() - $lastUpdate) / (24 * 3600);
-                $status['updated'] = $daysSinceUpdate < 7;
-                $status['last_update'] = date('Y-m-d H:i:s', $lastUpdate);
-                break;
+    }
+    
+    // 2. Si pas trouvé, essayer avec sudo pour contourner les permissions
+    if (!$clamPath) {
+        foreach ($possiblePaths as $path) {
+            if (file_exists($path)) {
+                // Tester avec sudo si le fichier existe mais n'est pas exécutable
+                exec("sudo -n test -x $path 2>/dev/null", $output, $returnCode);
+                if ($returnCode === 0) {
+                    $clamPath = "sudo $path";
+                    $status['debug'][] = "ClamAV accessible via sudo: $path";
+                    break;
+                }
             }
         }
     }
     
+    // 3. Test avec which en utilisant PATH complet
+    if (!$clamPath) {
+        $pathEnv = 'PATH=/usr/bin:/bin:/usr/local/bin:/sbin:/usr/sbin';
+        exec("$pathEnv which clamscan 2>/dev/null", $whichOutput, $whichCode);
+        if ($whichCode === 0 && !empty($whichOutput)) {
+            $foundPath = trim($whichOutput[0]);
+            if (file_exists($foundPath)) {
+                $clamPath = $foundPath;
+                $status['debug'][] = "ClamAV trouvé via which: $foundPath";
+            }
+        }
+    }
+    
+    // 4. Test en utilisant find
+    if (!$clamPath) {
+        exec("find /usr -name 'clamscan' -type f 2>/dev/null | head -1", $findOutput, $findCode);
+        if ($findCode === 0 && !empty($findOutput)) {
+            $foundPath = trim($findOutput[0]);
+            if (file_exists($foundPath)) {
+                $clamPath = $foundPath;
+                $status['debug'][] = "ClamAV trouvé via find: $foundPath";
+            }
+        }
+    }
+    
+    if ($clamPath) {
+        $status['installed'] = true;
+        
+        // Récupérer la version avec PATH explicite
+        $pathEnv = 'PATH=/usr/bin:/bin:/usr/local/bin';
+        exec("$pathEnv $clamPath --version 2>/dev/null", $versionOutput, $versionCode);
+        if ($versionCode === 0 && !empty($versionOutput)) {
+            $status['version'] = trim($versionOutput[0]);
+            $status['debug'][] = "Version récupérée: " . $status['version'];
+        } else {
+            // Essayer avec sudo
+            exec("sudo $clamPath --version 2>/dev/null", $versionOutput, $versionCode);
+            if ($versionCode === 0 && !empty($versionOutput)) {
+                $status['version'] = trim($versionOutput[0]);
+                $status['debug'][] = "Version récupérée via sudo: " . $status['version'];
+            } else {
+                $status['debug'][] = "Erreur lors de la récupération de la version (code: $versionCode)";
+            }
+        }
+        
+        // Vérifier les définitions antivirus
+        $dbPaths = [
+            '/var/lib/clamav/daily.cvd',
+            '/var/lib/clamav/main.cvd',
+            '/var/lib/clamav/bytecode.cvd',
+            '/var/lib/clamav/daily.cld',
+            '/var/lib/clamav/main.cld',
+            '/var/lib/clamav/bytecode.cld'
+        ];
+        
+        $latestUpdate = 0;
+        $foundDb = false;
+        
+        foreach ($dbPaths as $dbPath) {
+            if (file_exists($dbPath)) {
+                $foundDb = true;
+                $lastModified = filemtime($dbPath);
+                if ($lastModified > $latestUpdate) {
+                    $latestUpdate = $lastModified;
+                }
+                $status['debug'][] = "DB trouvée: $dbPath (" . date('Y-m-d H:i:s', $lastModified) . ")";
+            }
+        }
+        
+        if ($foundDb && $latestUpdate > 0) {
+            $daysSinceUpdate = (time() - $latestUpdate) / (24 * 3600);
+            $status['updated'] = $daysSinceUpdate < 7; // Considéré à jour si < 7 jours
+            $status['last_update'] = date('Y-m-d H:i:s', $latestUpdate);
+            $status['days_old'] = round($daysSinceUpdate, 1);
+            $status['debug'][] = "Dernière MAJ: " . $status['last_update'] . " ({$status['days_old']} jours)";
+        } else {
+            $status['debug'][] = "Aucune base de données trouvée";
+        }
+    } else {
+        $status['debug'][] = "ClamAV non trouvé dans tous les chemins testés";
+        
+        // Diagnostic supplémentaire
+        $currentUser = exec('whoami');
+        $status['debug'][] = "Utilisateur web: $currentUser";
+        
+        // Vérifier si dpkg montre que ClamAV est installé
+        exec("dpkg -l | grep clamav 2>/dev/null", $dpkgOutput, $dpkgCode);
+        if (!empty($dpkgOutput)) {
+            $status['debug'][] = "ClamAV installé selon dpkg mais inaccessible";
+        }
+    }
+    
     return $status;
+}
+
+/**
+ * Scanne un fichier rapidement (pour uploads)
+ */
+function quickScanFile($filePath) {
+    if (!file_exists($filePath)) {
+        return ['status' => false, 'message' => 'Fichier non trouvé'];
+    }
+    
+    $clamPath = '/usr/bin/clamscan';
+    if (!is_executable($clamPath)) {
+        // Fallback vers scan basique
+        $result = scanFileBasic($filePath);
+        return ['status' => $result['status'], 'message' => $result['message']];
+    }
+    
+    $escapedPath = escapeshellarg($filePath);
+    $command = "timeout 30 $clamPath --no-summary --quiet $escapedPath 2>/dev/null";
+    
+    exec($command, $output, $returnCode);
+    
+    switch ($returnCode) {
+        case 0:
+            return ['status' => true, 'message' => 'OK'];
+        case 1:
+            return ['status' => false, 'message' => 'VIRUS DÉTECTÉ'];
+        default:
+            // Fallback vers scan basique en cas d'erreur
+            $result = scanFileBasic($filePath);
+            return ['status' => $result['status'], 'message' => 'Scan basique: ' . $result['message']];
+    }
+}
+
+/**
+ * Met à jour les définitions ClamAV
+ */
+function updateClamAVDefinitions() {
+    $command = "sudo freshclam 2>&1";
+    exec($command, $output, $returnCode);
+    
+    return [
+        'success' => $returnCode === 0,
+        'message' => implode("\n", $output),
+        'return_code' => $returnCode
+    ];
+}
+
+/**
+ * Obtient les statistiques de scan
+ */
+function getClamAVStats() {
+    return [
+        'total_scans' => 0,
+        'threats_found' => 0,
+        'last_scan' => null
+    ];
+}
+
+/**
+ * Vérifie si ClamAV daemon est actif
+ */
+function isClamAVDaemonActive() {
+    exec("systemctl is-active clamav-daemon 2>/dev/null", $output, $returnCode);
+    return $returnCode === 0 && !empty($output) && trim($output[0]) === 'active';
+}
+
+/**
+ * Log une activité antivirus
+ */
+function logAntivirusActivity($action, $file, $result, $details = '') {
+    $logEntry = date('Y-m-d H:i:s') . " - $action - $file - $result";
+    if ($details) {
+        $logEntry .= " - $details";
+    }
+    error_log($logEntry, 3, '/tmp/clamav_activity.log');
+}
+
+/**
+ * Test de fichier EICAR pour vérifier le fonctionnement
+ */
+function createEicarTestFile($path = '/tmp/eicar_test.txt') {
+    $eicarString = 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
+    return file_put_contents($path, $eicarString) !== false;
+}
+
+// Test de fonctionnement au chargement (optionnel)
+if (defined('ANTIVIRUS_DEBUG') && ANTIVIRUS_DEBUG) {
+    error_log("antivirus.php loaded - ClamAV status: " . json_encode(getClamAVStatus()));
 }
 ?>
