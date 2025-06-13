@@ -115,7 +115,10 @@ date_default_timezone_set('Europe/Paris');
                         
                         echo "<td>" . htmlspecialchars((string)($file['author_ip'] ?? 'Non renseigné')) . "</td>";
                         echo "<td>" . htmlspecialchars((string)($file['author_city'] ?? 'Non renseigné')) . "</td>";
-                        echo "<td>" . htmlspecialchars((string)$file['download_code']) . " <a href='/download.php?code=" . htmlspecialchars((string)$file['download_code']) . "' target='_blank' class='download-link'>🔗</a></td>";
+                        echo "<td class='download-code-cell'>" . htmlspecialchars((string)$file['download_code']) . " 
+                                <a href='/download.php?code=" . htmlspecialchars((string)$file['download_code']) . "' target='_blank' class='download-link'>🔗</a>
+                                <button class='copy-link-btn' onclick='copyDownloadLink(\"" . htmlspecialchars($file['download_code']) . "\")'>📋 Copier</button>
+                              </td>";
                         
                         // Code A2F avec mise en évidence
                         if ($file['auth_code']) {

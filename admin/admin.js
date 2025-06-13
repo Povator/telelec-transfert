@@ -4,14 +4,27 @@ const closeBtn = document.getElementsByClassName('close')[0];
 const historyCloseBtn = document.getElementById('historyModal').querySelector('.close');
 const editForm = document.getElementById('editForm');
 
-function editFile(id) {
-    modal.style.display = 'block';
-    document.getElementById('fileId').value = id;
-
-    // Récupérer les données actuelles du fichier
-    const row = document.querySelector(`tr[data-id="${id}"]`);
-    document.getElementById('filename').value = row.children[1].textContent;
-    document.getElementById('downloadCode').value = row.children[3].textContent;
+// Fonction pour éditer un fichier
+function editFile(fileId) {
+    // Récupérer les données du fichier depuis la ligne du tableau
+    const row = document.querySelector(`tr[data-id="${fileId}"]`);
+    if (!row) {
+        alert('Erreur: fichier introuvable');
+        return;
+    }
+    
+    // Extraire les données de la ligne
+    const cells = row.querySelectorAll('td');
+    const currentFilename = cells[2].textContent.trim();
+    const currentDownloadCode = cells[6].textContent.trim().split(' ')[0]; // Prendre seulement le code, pas les boutons
+    
+    // Remplir le modal avec les données actuelles
+    document.getElementById('fileId').value = fileId;
+    document.getElementById('filename').value = currentFilename;
+    document.getElementById('downloadCode').value = currentDownloadCode;
+    
+    // Afficher le modal
+    document.getElementById('editModal').style.display = 'block';
 }
 
 closeBtn.onclick = function() {
@@ -417,6 +430,72 @@ function copyAuthCode(authCode) {
     });
 }
 
+// Fonction pour copier le lien de téléchargement
+function copyDownloadLink(downloadCode) {
+    const baseUrl = window.location.origin;
+    const downloadUrl = `${baseUrl}/download.php?code=${downloadCode}`;
+    
+    // Copier dans le presse-papiers
+    navigator.clipboard.writeText(downloadUrl).then(() => {
+        // Animation du bouton
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = '✓ Copié !';
+        button.classList.add('copied');
+        
+        // Afficher la notification
+        showCopyNotification('Lien de téléchargement copié dans le presse-papiers !');
+        
+        // Remettre le bouton à l'état normal
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.classList.remove('copied');
+        }, 2000);
+        
+    }).catch(() => {
+        // Fallback pour les navigateurs plus anciens
+        const textArea = document.createElement('textarea');
+        textArea.value = downloadUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        showCopyNotification('Lien copié !');
+    });
+}
+
+// Fonction pour afficher la notification de copie
+function showCopyNotification(message) {
+    // Supprimer les notifications existantes
+    const existingNotifications = document.querySelectorAll('.copy-notification');
+    existingNotifications.forEach(notif => notif.remove());
+    
+    // Créer la nouvelle notification
+    const notification = document.createElement('div');
+    notification.className = 'copy-notification';
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Afficher avec animation
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    // Supprimer après 3 secondes
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            if (notification.parentNode) {
+                document.body.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+}
+
 // Fonction pour afficher des notifications discrètes
 function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
@@ -456,3 +535,48 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Gestionnaire pour fermer les modals
+document.addEventListener('DOMContentLoaded', function() {
+    // Gérer la fermeture des modals
+    document.querySelectorAll('.close').forEach(closeBtn => {
+        closeBtn.addEventListener('click', function() {
+            this.closest('.modal').style.display = 'none';
+        });
+    });
+    
+    // Fermer modal en cliquant à l'extérieur
+    window.addEventListener('click', function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    });
+    
+    // Gérer la soumission du formulaire d'édition
+    document.getElementById('editForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch('/admin/edit-file.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showBootstrapToast('Fichier modifié avec succès !', 'success');
+                document.getElementById('editModal').style.display = 'none';
+                // Recharger la page pour voir les changements
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                alert('Erreur: ' + (data.message || 'Modification échouée'));
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la modification');
+        });
+    });
+});

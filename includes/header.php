@@ -24,12 +24,11 @@ date_default_timezone_set('Europe/Paris');
         </div>
         <div class="nav-right">
             <?php if (isset($_SESSION['admin']) && $_SESSION['admin'] === true): ?>
-                <!-- CORRECTION: Navigation admin unifiée avec icônes -->
-                <a href="/admin/dashboard.php" class="nav-item">📊 Dashboard</a>
-                <a href="/admin/logs.php" class="nav-item">📝 Logs</a>
-                <a href="/admin/security_threats.php" class="nav-item">🚨 Menaces</a>
-                <a href="/admin/antivirus_details.php" class="nav-item">🦠 Antivirus</a>
-                <a href="/admin/logout.php" class="nav-item">🚪 Déconnexion</a>
+                <a href="/admin/dashboard.php" class="nav-item">Dashboard</a>
+                <a href="/admin/logs.php" class="nav-item">Logs</a>
+                <a href="/admin/security_threats.php" class="nav-item">Menaces</a>
+                <a href="/admin/antivirus_details.php" class="nav-item">Antivirus</a>
+                <a href="/admin/logout.php" class="nav-item">Déconnexion</a>
             <?php else: ?>
                 <a href="/admin/login.php" class="nav-item">Admin</a>
             <?php endif; ?>
