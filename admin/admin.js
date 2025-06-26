@@ -1,178 +1,18 @@
-const modal = document.getElementById('editModal');
-const historyModal = document.getElementById('historyModal');
-const closeBtn = document.getElementsByClassName('close')[0];
-const historyCloseBtn = document.getElementById('historyModal').querySelector('.close');
-const editForm = document.getElementById('editForm');
+/**
+ * Scripts d'administration pour la gestion des fichiers
+ * 
+ * Fournit les fonctionnalités de gestion en lot, modals
+ * et interactions AJAX pour l'interface d'administration.
+ *
+ * @author  TeleLec
+ * @version 1.8
+ */
 
-// Fonction pour éditer un fichier
-function editFile(fileId) {
-    // Récupérer les données du fichier depuis la ligne du tableau
-    const row = document.querySelector(`tr[data-id="${fileId}"]`);
-    if (!row) {
-        alert('Erreur: fichier introuvable');
-        return;
-    }
-    
-    // Extraire les données de la ligne
-    const cells = row.querySelectorAll('td');
-    const currentFilename = cells[2].textContent.trim();
-    const currentDownloadCode = cells[6].textContent.trim().split(' ')[0]; // Prendre seulement le code, pas les boutons
-    
-    // Remplir le modal avec les données actuelles
-    document.getElementById('fileId').value = fileId;
-    document.getElementById('filename').value = currentFilename;
-    document.getElementById('downloadCode').value = currentDownloadCode;
-    
-    // Afficher le modal
-    document.getElementById('editModal').style.display = 'block';
-}
-
-closeBtn.onclick = function() {
-    modal.style.display = 'none';
-};
-
-historyCloseBtn.onclick = function() {
-    historyModal.style.display = 'none';
-};
-
-// Gestionnaire d'événements global pour les clics
-window.addEventListener('click', function(event) {
-    if (event.target == modal) {
-        modal.style.display = 'none';
-        document.body.classList.remove('modal-open');
-    }
-    if (event.target == historyModal) {
-        historyModal.style.display = 'none';
-        document.body.classList.remove('modal-open');
-    }
-});
-
-// CORRECTION: Ajouter la fermeture par touche Échap
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape') {
-        if (historyModal.style.display === 'block') {
-            historyModal.style.display = 'none';
-            document.body.classList.remove('modal-open');
-        }
-        if (modal.style.display === 'block') {
-            modal.style.display = 'none';
-            document.body.classList.remove('modal-open');
-        }
-    }
-});
-
-editForm.onsubmit = function(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(editForm);
-    fetch('update_file.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('Erreur lors de la mise à jour');
-        }
-    });
-}
-
-function refreshDatabase() {
-    if (confirm('Voulez-vous vraiment nettoyer la base de données ?')) {
-        fetch('/clean_database.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                action: 'refresh_database'
-            })
-        })
-        .then(response => response.text())
-        .then(result => {
-            alert(result);
-            window.location.href = '/admin/dashboard.php';
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            alert('Erreur lors du nettoyage de la base de données');
-        });
-    }
-}
-
-function showHistory(fileId) {
-    const historyContent = document.getElementById('historyContent');
-    const historyModal = document.getElementById('historyModal');
-    
-    // CORRECTION: Ajouter une classe au body pour empêcher le défilement
-    document.body.classList.add('modal-open');
-    
-    // Afficher un indicateur de chargement
-    historyContent.innerHTML = '<div style="text-align: center; padding: 20px;"><p>⏳ Chargement de l\'historique...</p></div>';
-    
-    // CORRECTION: Afficher le modal immédiatement pour éviter les bugs d'affichage
-    historyModal.style.display = 'block';
-    
-    fetch(`/admin/get_history.php?file_id=${fileId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.length === 0) {
-                historyContent.innerHTML = '<div class="no-history">Aucun téléchargement enregistré pour ce fichier</div>';
-            } else {
-                let html = '<table class="history-table">';
-                html += '<thead><tr><th>📅 Date</th><th>🌐 Adresse IP</th><th>🖥️ Navigateur</th><th>📍 Ville</th></tr></thead>';
-                html += '<tbody>';
-                
-                data.forEach(download => {
-                    // Formater la date de manière plus lisible
-                    const date = new Date(download.download_time);
-                    const formattedDate = date.toLocaleDateString('fr-FR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    
-                    // Raccourcir le user agent pour l'affichage
-                    let shortUserAgent = download.user_agent || 'Inconnu';
-                    if (shortUserAgent.length > 50) {
-                        shortUserAgent = shortUserAgent.substring(0, 50) + '...';
-                    }
-                    
-                    html += `<tr>
-                        <td>${formattedDate}</td>
-                        <td>${download.download_ip || 'Inconnu'}</td>
-                        <td title="${download.user_agent || 'Inconnu'}">${shortUserAgent}</td>
-                        <td>${download.city || 'Non renseigné'}</td>
-                    </tr>`;
-                });
-                
-                html += '</tbody></table>';
-                
-                // Ajouter un résumé en bas
-                html += `<div style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 6px; font-size: 13px; color: #6c757d;">
-                    <strong>Résumé :</strong> ${data.length} téléchargement${data.length > 1 ? 's' : ''} enregistré${data.length > 1 ? 's' : ''}
-                </div>`;
-                
-                historyContent.innerHTML = html;
-            }
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            historyContent.innerHTML = '<div style="text-align: center; padding: 20px; color: #e74c3c;"><p>❌ Erreur lors du chargement de l\'historique</p></div>';
-        });
-}
-
-// CORRECTION: Améliorer la fermeture du modal
-historyCloseBtn.onclick = function() {
-    historyModal.style.display = 'none';
-    document.body.classList.remove('modal-open'); // Réactiver le défilement
-};
-
-// Ajouter cette nouvelle fonction
+/**
+ * Génère un nouveau code d'authentification pour un fichier
+ *
+ * @param {number} fileId Identifiant du fichier
+ */
 function generateNewAuthCode(fileId) {
     if (confirm('Voulez-vous générer un nouveau code d\'authentification ?')) {
         fetch('generate_auth_code.php', {
@@ -198,6 +38,11 @@ function generateNewAuthCode(fileId) {
     }
 }
 
+/**
+ * Supprime un transfert avec confirmation
+ *
+ * @param {number} id Identifiant du transfert à supprimer
+ */
 function deleteTransfer(id) {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce transfert ? Cette action est irréversible.')) {
         
@@ -233,15 +78,9 @@ function deleteTransfer(id) {
     }
 }
 
-// Fonctions pour la sélection multiple
-function toggleSelectAll(checkbox) {
-    const fileCheckboxes = document.querySelectorAll('.file-checkbox');
-    fileCheckboxes.forEach(cb => {
-        cb.checked = checkbox.checked;
-    });
-    updateDeleteButton();
-}
-
+/**
+ * Met à jour l'affichage du bouton de suppression en lot
+ */
 function updateDeleteButton() {
     const selectedCheckboxes = document.querySelectorAll('.file-checkbox:checked');
     const deleteBtn = document.getElementById('deleteSelectedBtn');
@@ -273,29 +112,13 @@ function updateDeleteButton() {
     }
 }
 
-function deleteSelectedFiles() {
-    const selectedCheckboxes = document.querySelectorAll('.file-checkbox:checked');
-    const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
-    
-    if (selectedIds.length === 0) {
-        alert('Aucun fichier sélectionné');
-        return;
-    }
-    
-    const confirmMessage = `Êtes-vous sûr de vouloir supprimer ${selectedIds.length} fichier(s) ? Cette action est irréversible.`;
-    
-    if (confirm(confirmMessage)) {
-        // Afficher un indicateur de chargement
-        const deleteBtn = document.getElementById('deleteSelectedBtn');
-        const originalText = deleteBtn.innerHTML;
-        deleteBtn.innerHTML = '⏳ Suppression en cours...';
-        deleteBtn.disabled = true;
-        
-        // Supprimer les fichiers un par un
-        deleteFilesSequentially(selectedIds, 0, originalText);
-    }
-}
-
+/**
+ * Supprime plusieurs fichiers de manière séquentielle
+ *
+ * @param {Array<number>} fileIds Liste des identifiants de fichiers
+ * @param {number} index Index actuel dans la liste
+ * @param {string} originalButtonText Texte original du bouton
+ */
 function deleteFilesSequentially(fileIds, index, originalButtonText) {
     if (index >= fileIds.length) {
         // Tous les fichiers ont été traités
@@ -355,54 +178,11 @@ function deleteFilesSequentially(fileIds, index, originalButtonText) {
     });
 }
 
-// NOUVELLE FONCTION - Empêcher la sélection des en-têtes
-document.addEventListener('DOMContentLoaded', function() {
-    // Empêcher la sélection des en-têtes de tableau
-    document.querySelectorAll('.admin-table th').forEach(header => {
-        header.addEventListener('selectstart', function(e) {
-            e.preventDefault();
-        });
-        
-        header.addEventListener('mousedown', function(e) {
-            e.preventDefault();
-        });
-    });
-    
-    // Ajouter des événements aux cases à cocher existantes
-    document.querySelectorAll('.file-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const row = this.closest('tr');
-            if (this.checked) {
-                row.classList.add('selected');
-            } else {
-                row.classList.remove('selected');
-            }
-            updateDeleteButton(); // Mettre à jour le bouton de suppression
-        });
-    });
-    
-    // Gérer la case "Tout sélectionner"
-    const selectAllCheckbox = document.getElementById('selectAll');
-    if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-            document.querySelectorAll('.file-checkbox').forEach(checkbox => {
-                checkbox.checked = this.checked;
-                const row = checkbox.closest('tr');
-                if (this.checked) {
-                    row.classList.add('selected');
-                } else {
-                    row.classList.remove('selected');
-                }
-            });
-            updateDeleteButton(); // Mettre à jour le bouton
-        });
-    }
-    
-    // Vérifier l'état initial
-    updateDeleteButton();
-});
-
-// Fonction pour copier le code A2F
+/**
+ * Copie un code d'authentification dans le presse-papiers
+ *
+ * @param {string} authCode Code d'authentification à copier
+ */
 function copyAuthCode(authCode) {
     navigator.clipboard.writeText(authCode).then(() => {
         // Animation de confirmation
@@ -430,7 +210,11 @@ function copyAuthCode(authCode) {
     });
 }
 
-// Fonction pour copier le lien de téléchargement
+/**
+ * Copie un lien de téléchargement dans le presse-papiers
+ *
+ * @param {string} downloadCode Code de téléchargement pour construire l'URL
+ */
 function copyDownloadLink(downloadCode) {
     const baseUrl = window.location.origin;
     const downloadUrl = `${baseUrl}/download.php?code=${downloadCode}`;

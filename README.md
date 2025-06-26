@@ -1,193 +1,228 @@
-# README - Telelec-Transfert
+# Telelec-Transfert
 
-## 📋 Sommaire
-1. [Introduction](#introduction)
-2. [Fonctionnalités](#fonctionnalités)
-3. [Prérequis](#prérequis)
-4. [Installation](#installation)
-5. [Configuration](#configuration)
-6. [Utilisation](#utilisation)
-7. [Sécurité](#sécurité)
-8. [Maintenance](#maintenance)
-9. [Dépannage](#dépannage)
+Solution interne de transfert de fichiers sécurisée développée pour Telelec. Cette application permet un partage de fichiers sécurisé avec authentification à deux facteurs, interface d'administration complète, et système de logs avancé.
 
-## 📝 Introduction
+## 🚀 Fonctionnalités
 
-**Telelec-Transfert** est une solution interne développée pour Telelec permettant de transférer des fichiers volumineux de manière sécurisée. Cette application offre une alternative aux services tiers comme WeTransfer, en garantissant la confidentialité des données et un contrôle total sur les fichiers partagés.
+### Transfert de Fichiers
+- **Upload sécurisé** : Interface drag & drop intuitive
+- **Validation avancée** : Vérification des types de fichiers et tailles
+- **Scan antivirus** : Protection contre les fichiers malveillants
+- **Chiffrement** : Stockage sécurisé des fichiers
+- **Liens temporaires** : Génération de liens de téléchargement avec expiration
 
-Ce système permet l'envoi de fichiers jusqu'à 50 Go avec authentification à deux facteurs et suivi complet des téléchargements.
+### Sécurité
+- **Authentification 2FA** : Double authentification par email
+- **Contrôle d'accès** : Système de permissions granulaire
+- **Monitoring** : Surveillance en temps réel des activités
+- **Logs complets** : Traçabilité de toutes les actions
+- **Protection CSRF** : Sécurisation des formulaires
 
-## ✨ Fonctionnalités
+### Administration
+- **Dashboard complet** : Vue d'ensemble des activités
+- **Gestion des utilisateurs** : Création, modification, suppression
+- **Analyse des logs** : Interface de consultation des journaux
+- **Statistiques** : Métriques de performance et d'utilisation
+- **Configuration** : Paramétrage centralisé
 
-- **Upload de fichiers volumineux** (jusqu'à 50 Go)
-- **Authentification à deux facteurs (A2F)** pour les téléchargements
-- **Traçabilité complète** des téléchargements (adresse IP, localisation, date, appareil)
-- **Interface d'administration** pour la gestion des fichiers
-- **Tableau de bord** avec statistiques en temps réel
-- **Système de logs** pour surveiller l'activité et les tentatives non autorisées
-- **Génération de codes uniques** pour le partage de fichiers
-- **Interface utilisateur intuitive** et responsive
-- **Sécurisation des données** et cryptage des communications
+## 🏗️ Architecture Technique
 
-## 🔧 Prérequis
+### Stack Technologique
+- **Backend** : PHP 8.1+ avec PDO
+- **Base de données** : MySQL 8.0
+- **Frontend** : HTML5, CSS3, JavaScript vanilla
+- **Conteneurisation** : Docker & Docker Compose
+- **Serveur web** : Apache 2.4
 
-- Docker et Docker Compose
-- Un serveur web avec accès SSH
-- Au moins 2 Go de RAM disponibles
-- Espace disque adapté aux fichiers à stocker
+### Structure des Dossiers
+```
+telelec-transfert/
+├── admin/              # Interface d'administration
+├── css/               # Feuilles de style
+├── js/                # Scripts JavaScript
+├── uploads/           # Stockage temporaire des fichiers
+├── secure/            # Zone sécurisée (fichiers traités)
+├── docker-compose.yml # Configuration Docker
+├── Dockerfile         # Image Docker personnalisée
+└── *.php             # Pages principales de l'application
+```
 
-## 🚀 Installation
+### Base de Données
+- **users** : Comptes utilisateurs et administrateurs
+- **files** : Métadonnées des fichiers uploadés
+- **file_logs** : Journal des activités et erreurs
+- **sessions** : Gestion des sessions utilisateurs
+- **verification_codes** : Codes 2FA temporaires
 
-### 1. Cloner le dépôt
+## 📦 Installation et Déploiement
 
+### Prérequis
+- Docker 20.10+
+- Docker Compose 2.0+
+- Port 8080 disponible
+
+### 1. Cloner le projet
 ```bash
-git clone https://github.com/votre-organisation/telelec-transfert.git
+git clone <repository-url>
 cd telelec-transfert
 ```
 
-### 2. Configurer les variables d'environnement
-
-Créez un fichier `.env` à la racine du projet basé sur le modèle `.env.example` :
-
+### 2. Créer l'environnement Docker
 ```bash
-cp .env.example .env
-nano .env
+# Construire et lancer les conteneurs
+docker-compose up -d --build
+
+# Vérifier le statut
+docker-compose ps
 ```
 
-Modifiez les variables suivantes :
-```
-DB_HOST=db
-DB_NAME=telelec
-DB_USER=telelecuser
-DB_PASSWORD=votre_mot_de_passe_securise
-ADMIN_USERNAME=votre_nom_utilisateur_admin
-ADMIN_PASSWORD=votre_mot_de_passe_admin
-UPLOAD_MAX_SIZE=51200M  # Taille maximale d'upload en Mo (50 Go)
+### 3. Vérifier l'installation
+- **Application** : http://localhost:8080
+- **Administration** : http://localhost:8080/admin
+- **Base de données** : Accessible via port 3306
+
+### 4. Configuration initiale
+
+#### Base de données
+La base de données s'initialise automatiquement au premier démarrage via Docker. Les tables sont créées avec la structure suivante :
+
+- Table `users` pour les comptes (admin créé par défaut)
+- Table `files` pour les métadonnées des fichiers
+- Table `file_logs` pour les journaux d'activité
+- Table `sessions` pour la gestion des sessions
+- Table `verification_codes` pour l'authentification 2FA
+
+#### Compte administrateur
+Un compte administrateur par défaut est créé dans la base de données :
+- **Identifiant** : admin
+- **Mot de passe** : Configuré directement dans la base
+
+#### Configuration email (2FA)
+Pour activer l'authentification à deux facteurs, configurez les paramètres SMTP dans les fichiers PHP concernés :
+- Serveur SMTP
+- Port (587 recommandé)
+- Authentification
+- Chiffrement TLS
+
+### 5. Configuration avancée
+
+#### Paramètres de sécurité
+Les paramètres de connexion à la base de données sont configurés dans :
+- Fichiers de l'interface admin (`/admin/*.php`)
+- Configuration Docker Compose pour l'environnement
+
+#### Limites de fichiers
+Modifiez dans `php.ini` ou la configuration Docker :
+```ini
+upload_max_filesize = 100M
+post_max_size = 100M
+max_execution_time = 300
 ```
 
-### 3. Construire et démarrer les conteneurs Docker
+## 🔧 Configuration
 
+### Variables d'environnement
+Configuration via Docker Compose :
+```yaml
+environment:
+  MYSQL_ROOT_PASSWORD: rootpassword
+  MYSQL_DATABASE: telelec_transfert
+  MYSQL_USER: telelec_user
+  MYSQL_PASSWORD: telelec_password
+```
+
+### Sécurité
+- Changez les mots de passe par défaut
+- Configurez HTTPS en production
+- Activez les logs d'audit
+- Configurez les sauvegardes automatiques
+
+## 📊 Utilisation
+
+### Interface Utilisateur
+1. **Accès** : http://localhost:8080
+2. **Upload** : Glissez-déposez vos fichiers
+3. **Validation** : Vérification automatique des fichiers
+4. **Partage** : Récupération du lien de téléchargement
+
+### Interface Admin
+1. **Connexion** : http://localhost:8080/admin
+2. **Dashboard** : Vue d'ensemble des activités
+3. **Logs** : Consultation des journaux
+4. **Gestion** : Administration des utilisateurs et fichiers
+
+## 🛡️ Sécurité
+
+### Mesures Implémentées
+- Validation stricte des types de fichiers
+- Scan antivirus automatique
+- Authentification à deux facteurs
+- Chiffrement des données sensibles
+- Protection contre les attaques XSS/CSRF
+- Logs détaillés de toutes les activités
+- Gestion des sessions sécurisée
+
+### Bonnes Pratiques
+- Changement régulier des mots de passe
+- Surveillance des logs
+- Mise à jour régulière des dépendances
+- Sauvegarde des données critiques
+
+## 📈 Monitoring et Logs
+
+### Types de Logs
+- **Activités utilisateur** : Uploads, téléchargements
+- **Erreurs système** : Échecs de traitement
+- **Sécurité** : Tentatives d'intrusion, connexions admin
+- **Performance** : Temps de traitement, utilisation
+
+### Dashboard Admin
+- Statistiques en temps réel
+- Alertes de sécurité
+- Métriques de performance
+- Gestion des utilisateurs
+
+## 🔄 Maintenance
+
+### Commandes Docker Utiles
 ```bash
-docker-compose up -d
-```
+# Arrêter les services
+docker-compose down
 
-### 4. Initialiser la base de données
+# Reconstruire après modifications
+docker-compose up -d --build
 
-```bash
-docker-compose exec db mysql -u root -p
+# Consulter les logs
+docker-compose logs -f
 
-# Dans l'invite MySQL, exécutez :
-source /docker-entrypoint-initdb.d/init.sql
-exit
-```
-
-### 5. Configurer le compte administrateur
-
-```bash
-docker-compose exec app php ./scripts/create-admin.php
-```
-
-## ⚙️ Configuration
-
-### Base de données
-
-Les paramètres de connexion à la base de données sont configurés dans plusieurs fichiers :
-
-- `/secure/config.php` - Configuration principale (créé automatiquement)
-- `/admin/login.php` - Connexion à la base pour l'administration
-
-Assurez-vous que ces fichiers contiennent les identifiants corrects :
-
-```php
-$host = 'db';  // Nom du service dans docker-compose
-$db = 'telelec';
-$user = 'telelecuser';
-$pass = 'votre_mot_de_passe_securise';
-```
-
-### Limites d'upload
-
-La taille maximale d'upload est configurée dans :
-- `php.ini` - `upload_max_filesize` et `post_max_size`
-- `.htaccess` pour Apache
-
-### Paramètres d'expiration
-
-Dans `/Transfert/finalize-upload.php`, vous pouvez modifier la durée d'expiration des liens :
-
-```php
-$expirationDate = date('Y-m-d H:i:s', strtotime('+5 days'));  // Par défaut 5 jours
-```
-
-## 🖱️ Utilisation
-
-### Envoi de fichiers
-
-1. Accédez à l'application via `https://votre-domaine.fr`
-2. Cliquez sur "Envoyer" dans le menu
-3. Déposez votre fichier ou utilisez le sélecteur de fichiers
-4. Attendez la fin de l'upload
-5. Récupérez le lien de téléchargement et le code A2F
-6. Partagez le lien et le code A2F au destinataire (via deux canaux différents)
-
-### Administration
-
-1. Accédez à `https://votre-domaine.fr/admin/login.php`
-2. Connectez-vous avec les identifiants administrateur
-3. Gérez les fichiers (suppression, modification, historique)
-4. Consultez les statistiques et logs d'activité
-
-## 🔐 Sécurité
-
-- L'authentification à deux facteurs est activée par défaut
-- Les mots de passe sont hachés avec l'algorithme bcrypt
-- Les sessions sont protégées contre la fixation et le vol
-- L'accès à l'administration est limité
-- La géolocalisation IP permet de détecter les accès suspects
-- Les fichiers sont stockés dans un répertoire sécurisé hors de la racine web
-
-**Important :** Changez régulièrement le mot de passe administrateur et surveillez les logs pour détecter toute activité suspecte.
-
-## 🛠️ Maintenance
-
-### Nettoyage automatique
-
-Un système de nettoyage automatique supprime les fichiers expirés. Vous pouvez le configurer en tant que tâche cron :
-
-```bash
-# Exemple de configuration cron (exécution quotidienne à 2h du matin)
-0 2 * * * docker-compose exec app php /var/www/html/clean_database.php > /dev/null 2>&1
+# Accès au conteneur
+docker-compose exec app bash
 ```
 
 ### Sauvegarde
-
-Pour sauvegarder la base de données et les fichiers :
-
 ```bash
-# Base de données
-docker-compose exec db mysqldump -u telelecuser -p telelec > backup/telelec_$(date +%Y%m%d).sql
+# Sauvegarde de la base de données
+docker-compose exec mysql mysqldump -u root -p telelec_transfert > backup.sql
 
-# Fichiers uploadés
-tar -czf backup/uploads_$(date +%Y%m%d).tar.gz uploads/
+# Sauvegarde des fichiers
+tar -czf uploads_backup.tar.gz uploads/ secure/
 ```
 
-## 🔧 Dépannage
+## 🤝 Support et Développement
 
-### Problèmes d'upload
-- Vérifiez les limites dans `php.ini` et `.htaccess`
-- Contrôlez les permissions du dossier `uploads/`
-- Consultez les logs PHP et Apache
+### Structure de Développement
+- Code modulaire et commenté
+- Séparation des responsabilités
+- Gestion d'erreurs centralisée
+- Architecture extensible
 
-### Erreurs de base de données
-- Vérifiez la connexion à la base avec `docker-compose exec db mysql -u telelecuser -p telelec`
-- Assurez-vous que toutes les tables existent
-- Contrôlez les logs MySQL
-
-### Problèmes de téléchargement
-- Vérifiez si les codes A2F sont correctement générés
-- Contrôlez les paramètres d'expiration
-- Examinez les logs d'accès pour détecter d'éventuels problèmes
+### Contribution
+- Respect des standards de codage PHP
+- Tests des nouvelles fonctionnalités
+- Documentation des modifications
+- Validation sécuritaire
 
 ---
 
-Développé par Telelec © 2025
+**Telelec-Transfert** - Solution de transfert de fichiers sécurisée
+Développé pour un usage interne chez Telelec. Ne pas redistribuer sans autorisation.

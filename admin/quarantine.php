@@ -14,6 +14,45 @@ try {
     $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
+    /**
+     * Approuve un fichier en quarantaine et le déplace vers uploads
+     *
+     * @param PDO $conn Connexion à la base de données
+     * @param int $fileId Identifiant du fichier
+     * @param string $notes Notes administratives
+     *
+     * @return bool True si approbation réussie
+     *
+     * @throws Exception Si erreur lors du déplacement
+     */
+    function approveQuarantinedFile($conn, $fileId, $notes = '') {
+        // ...existing code...
+    }
+
+    /**
+     * Rejette définitivement un fichier en quarantaine
+     *
+     * @param PDO $conn Connexion à la base de données
+     * @param int $fileId Identifiant du fichier
+     * @param string $notes Raison du rejet
+     *
+     * @return bool True si rejet réussi
+     */
+    function rejectQuarantinedFile($conn, $fileId, $notes = '') {
+        // ...existing code...
+    }
+
+    /**
+     * Récupère la liste des fichiers en quarantaine
+     *
+     * @param PDO $conn Connexion à la base de données
+     *
+     * @return array Liste des fichiers avec métadonnées
+     */
+    function getQuarantinedFiles($conn) {
+        // ...existing code...
+    }
+    
     // Traitement des actions admin
     if ($_POST['action'] ?? '') {
         $fileId = (int)$_POST['file_id'];
@@ -22,18 +61,15 @@ try {
         
         if ($action === 'approve') {
             // Approuver et déplacer vers uploads
-            // ... logique d'approbation
+            approveQuarantinedFile($conn, $fileId, $notes);
         } elseif ($action === 'reject') {
             // Rejeter et supprimer
-            // ... logique de rejet
+            rejectQuarantinedFile($conn, $fileId, $notes);
         }
     }
     
     // Récupérer les fichiers en quarantaine
-    $sql = "SELECT * FROM quarantine_files WHERE status = 'pending' ORDER BY upload_date DESC";
-    $stmt = $conn->prepare($sql);
-    $stmt->execute();
-    $quarantineFiles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $quarantineFiles = getQuarantinedFiles($conn);
     
 } catch (PDOException $e) {
     die("Erreur: " . $e->getMessage());

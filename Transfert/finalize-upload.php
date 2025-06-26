@@ -1,8 +1,59 @@
 <?php
+/**
+ * Finalisation d'un upload de fichier
+ * 
+ * Génère les codes d'authentification à deux facteurs et finalise
+ * l'enregistrement du fichier dans la base de données.
+ *
+ * @author  TeleLec
+ * @version 1.5
+ */
+
 header('Content-Type: application/json');
 
+/**
+ * Génère un code d'authentification à 6 chiffres
+ *
+ * @return string Code numérique de 6 chiffres avec zéros de tête
+ */
 function generateAuthCode() {
     return str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Calcule la date d'expiration des codes A2F
+ *
+ * @param int $days Nombre de jours avant expiration
+ *
+ * @return string Date d'expiration au format Y-m-d H:i:s
+ */
+function calculateExpirationDate($days = 30) {
+    return date('Y-m-d H:i:s', strtotime("+$days days"));
+}
+
+/**
+ * Vérifie si un fichier existe en base de données
+ *
+ * @param PDO $pdo Connexion à la base de données
+ * @param string $filename Nom du fichier à vérifier
+ *
+ * @return array|false Données du fichier ou false si inexistant
+ *
+ * @throws PDOException Si erreur de base de données
+ */
+function getFileByFilename($pdo, $filename) {
+    // CORRECTION: Rechercher le fichier dans files seulement
+    $findStmt = $pdo->prepare("SELECT id, filename, download_code FROM files WHERE filename = ? ORDER BY id DESC LIMIT 1");
+    $findStmt->execute([$filename]);
+    $fileRow = $findStmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$fileRow) {
+        error_log("FINALIZE: Fichier exact non trouvé, recherche du dernier fichier");
+        $lastFileStmt = $pdo->query("SELECT id, filename, download_code FROM files ORDER BY id DESC LIMIT 1");
+        $fileRow = $lastFileStmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    return $fileRow;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -24,16 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $pdo->beginTransaction();
 
-        // CORRECTION: Rechercher le fichier dans files seulement
-        $findStmt = $pdo->prepare("SELECT id, filename, download_code FROM files WHERE filename = ? ORDER BY id DESC LIMIT 1");
-        $findStmt->execute([$filename]);
-        $fileRow = $findStmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$fileRow) {
-            error_log("FINALIZE: Fichier exact non trouvé, recherche du dernier fichier");
-            $lastFileStmt = $pdo->query("SELECT id, filename, download_code FROM files ORDER BY id DESC LIMIT 1");
-            $fileRow = $lastFileStmt->fetch(PDO::FETCH_ASSOC);
-        }
+        $fileRow = getFileByFilename($pdo, $filename);
         
         if (!$fileRow) {
             $pdo->rollBack();

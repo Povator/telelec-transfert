@@ -1,3 +1,237 @@
+/**
+ * Gestionnaire d'upload côté client avec interface drag & drop
+ * 
+ * Gère l'upload de fichiers avec barre de progression, validation
+ * et suivi du statut d'analyse antivirus en temps réel.
+ *
+ * @author  TeleLec
+ * @version 2.1
+ */
+
+/**
+ * Formate une taille de fichier en octets vers une unité lisible
+ *
+ * @param {number} size Taille en octets
+ * @returns {string} Taille formatée avec unité appropriée
+ */
+function formatFileSize(size) {
+    const i = Math.floor(Math.log(size) / Math.log(1024));
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    return (size / Math.pow(1024, i)).toFixed(2) + ' ' + units[i];
+}
+
+/**
+ * Vérifie le statut d'analyse antivirus d'un fichier
+ *
+ * @param {number} fileId Identifiant unique du fichier
+ */
+function checkScanStatus(fileId) {
+    const scanStatusElement = document.getElementById('scanStatus');
+    let attempts = 0;
+    const maxAttempts = 60; // 2 minutes max
+    
+    const checkInterval = setInterval(() => {
+        attempts++;
+        
+        fetch(`check-scan-status.php?file_id=${fileId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Erreur API:', data.error);
+                return;
+            }
+            
+            console.log('Statut scan:', data); // Debug
+            
+            if (data.status === 'pending') {
+                scanStatusElement.textContent = `🔍 Analyse en cours... (${attempts * 2}s)`;
+                
+                if (attempts >= maxAttempts) {
+                    clearInterval(checkInterval);
+                    scanStatusElement.textContent = '⚠️ Analyse prenant plus de temps que prévu...';
+                    showFinalizeButton(data.filename);
+                }
+            } else {
+                // Scan terminé
+                clearInterval(checkInterval);
+                
+                if (data.status === 'true' || data.status === 'warning') {
+                    scanStatusElement.innerHTML = `
+                        <span style="color: green;">✅ Analyse terminée : ${data.message}</span>
+                    `;
+                    // Finaliser après 1 seconde
+                    setTimeout(() => proceedToFinalization({filename: data.filename}), 1000);
+                } else {
+                    scanStatusElement.innerHTML = `
+                        <span style="color: red;">❌ ${data.message}</span>
+                    `;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erreur vérification scan:', error);
+            // Continue à essayer même en cas d'erreur
+        });
+    }, 2000); // Vérifier toutes les 2 secondes
+}
+
+/**
+ * Procède à la finalisation de l'upload après analyse
+ *
+ * @param {Object} result Résultat de l'upload contenant les métadonnées
+ */
+function proceedToFinalization(result) {
+    uploadResult.innerHTML = `
+        <h3>⏳ Finalisation en cours...</h3>
+        <p>Génération des codes de sécurité...</p>
+    `;
+    
+    const formData = new FormData();
+    formData.append('filename', result.filename);
+    
+    fetch('finalize-upload.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Affichage du résultat final SANS le code A2F
+            uploadResult.innerHTML = `
+                <div class="upload-success">
+                    <h3>✅ Fichier envoyé avec succès !</h3>
+                    
+                    <div class="file-details">
+                        <div class="info-block">
+                            <div class="info-label">
+                                📄 <strong>Fichier :</strong>
+                            </div>
+                            <div class="info-value">${selectedFile.name}</div>
+                        </div>
+                        
+                        <div class="info-block">
+                            <div class="info-label">
+                                🔗 <strong>Lien de téléchargement :</strong>
+                            </div>
+                            <div class="info-value">${window.location.origin}${data.url}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="download-link-container">
+                        <button type="button" onclick="copyDownloadLink('${window.location.origin}${data.url}'); return false;" class="download-btn">
+                            📋 Copier le lien de téléchargement
+                        </button>
+                    </div>
+                    
+                    <div class="share-instructions">
+                        <strong>🔐 Instructions de partage sécurisé :</strong><br>
+                        1. Cliquez sur le bouton ci-dessus pour <strong>copier le lien</strong><br>
+                        2. Envoyez le lien au destinataire par votre canal habituel<br>
+                        3. Le <strong>code A2F</strong> sera fourni séparément par l'administrateur<br>
+                        4. Contactez l'administrateur pour obtenir le code d'authentification<br>
+                        5. Le fichier sera automatiquement supprimé après ${Math.ceil((new Date(data.expiration_date) - new Date()) / (1000 * 60 * 60 * 24))} jours
+                    </div>
+                    
+                    <div class="admin-notice" style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin-top: 20px;">
+                        <strong>⚠️ Important :</strong> Pour des raisons de sécurité, le code A2F n'est accessible que dans le dashboard administrateur. 
+                        L'administrateur devra le communiquer au destinataire par un canal séparé.
+                    </div>
+                </div>
+            `;
+        } else {
+            uploadResult.innerHTML = `<h3>❌ Erreur lors de la finalisation : ${data.error}</h3>`;
+        }
+    })
+    .catch(error => {
+        console.error('Erreur finalisation:', error);
+        uploadResult.innerHTML = `<h3>❌ Erreur lors de la finalisation</h3>`;
+    });
+}
+
+/**
+ * Copie un lien de téléchargement dans le presse-papiers
+ *
+ * @param {string} url URL de téléchargement à copier
+ */
+function copyDownloadLink(url) {
+    // IMPORTANT: Empêcher le comportement par défaut
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    
+    // Ajouter la classe d'animation
+    button.classList.add('copying');
+    button.innerHTML = '✅ Lien copié !';
+    
+    navigator.clipboard.writeText(url).then(() => {
+        // Afficher la notification popup
+        showCopyNotification('Lien de téléchargement copié dans le presse-papiers !');
+        
+        // Retourner à l'état normal après 2 secondes
+        setTimeout(() => {
+            button.classList.remove('copying');
+            button.innerHTML = originalText;
+        }, 2000);
+        
+    }).catch(() => {
+        // Fallback pour les navigateurs plus anciens
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        textArea.setSelectionRange(0, 99999);
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        // Afficher la notification même en fallback
+        showCopyNotification('Lien de téléchargement copié !');
+        
+        // Retourner à l'état normal
+        setTimeout(() => {
+            button.classList.remove('copying');
+            button.innerHTML = originalText;
+        }, 2000);
+    });
+}
+
+// Fonction améliorée pour afficher une notification de copie
+function showCopyNotification(message) {
+    // Supprimer les notifications existantes
+    const existingNotifications = document.querySelectorAll('.copy-notification');
+    existingNotifications.forEach(notif => notif.remove());
+    
+    // Créer la nouvelle notification
+    const notification = document.createElement('div');
+    notification.className = 'copy-notification slide-in';
+    notification.innerHTML = message;
+    
+    document.body.appendChild(notification);
+    
+    // Ajouter l'effet de rebond après l'apparition
+    setTimeout(() => {
+        notification.classList.add('bounce');
+    }, 400);
+    
+    // Supprimer la notification après 3 secondes
+    setTimeout(() => {
+        notification.classList.remove('slide-in', 'bounce');
+        notification.classList.add('slide-out');
+        
+        // Supprimer l'élément du DOM après l'animation
+        setTimeout(() => {
+            if (notification.parentNode) {
+                document.body.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+}
+
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileToUpload');
 const form = document.getElementById('uploadForm');
@@ -198,208 +432,3 @@ cancelBtn.addEventListener('click', () => {
         currentUpload.abort(); // 🛑
     }
 });
-
-function formatFileSize(size) {
-    const i = Math.floor(Math.log(size) / Math.log(1024));
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    return (size / Math.pow(1024, i)).toFixed(2) + ' ' + units[i];
-}
-
-// Nouvelle fonction pour vérifier le statut de l'analyse
-function checkScanStatus(fileId) {
-    const scanStatusElement = document.getElementById('scanStatus');
-    let attempts = 0;
-    const maxAttempts = 60; // 2 minutes max
-    
-    const checkInterval = setInterval(() => {
-        attempts++;
-        
-        fetch(`check-scan-status.php?file_id=${fileId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                console.error('Erreur API:', data.error);
-                return;
-            }
-            
-            console.log('Statut scan:', data); // Debug
-            
-            if (data.status === 'pending') {
-                scanStatusElement.textContent = `🔍 Analyse en cours... (${attempts * 2}s)`;
-                
-                if (attempts >= maxAttempts) {
-                    clearInterval(checkInterval);
-                    scanStatusElement.textContent = '⚠️ Analyse prenant plus de temps que prévu...';
-                    showFinalizeButton(data.filename);
-                }
-            } else {
-                // Scan terminé
-                clearInterval(checkInterval);
-                
-                if (data.status === 'true' || data.status === 'warning') {
-                    scanStatusElement.innerHTML = `
-                        <span style="color: green;">✅ Analyse terminée : ${data.message}</span>
-                    `;
-                    // Finaliser après 1 seconde
-                    setTimeout(() => proceedToFinalization({filename: data.filename}), 1000);
-                } else {
-                    scanStatusElement.innerHTML = `
-                        <span style="color: red;">❌ ${data.message}</span>
-                    `;
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Erreur vérification scan:', error);
-            // Continue à essayer même en cas d'erreur
-        });
-    }, 2000); // Vérifier toutes les 2 secondes
-}
-
-function proceedToFinalization(result) {
-    uploadResult.innerHTML = `
-        <h3>⏳ Finalisation en cours...</h3>
-        <p>Génération des codes de sécurité...</p>
-    `;
-    
-    const formData = new FormData();
-    formData.append('filename', result.filename);
-    
-    fetch('finalize-upload.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Affichage du résultat final SANS le code A2F
-            uploadResult.innerHTML = `
-                <div class="upload-success">
-                    <h3>✅ Fichier envoyé avec succès !</h3>
-                    
-                    <div class="file-details">
-                        <div class="info-block">
-                            <div class="info-label">
-                                📄 <strong>Fichier :</strong>
-                            </div>
-                            <div class="info-value">${selectedFile.name}</div>
-                        </div>
-                        
-                        <div class="info-block">
-                            <div class="info-label">
-                                🔗 <strong>Lien de téléchargement :</strong>
-                            </div>
-                            <div class="info-value">${window.location.origin}${data.url}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="download-link-container">
-                        <button type="button" onclick="copyDownloadLink('${window.location.origin}${data.url}'); return false;" class="download-btn">
-                            📋 Copier le lien de téléchargement
-                        </button>
-                    </div>
-                    
-                    <div class="share-instructions">
-                        <strong>🔐 Instructions de partage sécurisé :</strong><br>
-                        1. Cliquez sur le bouton ci-dessus pour <strong>copier le lien</strong><br>
-                        2. Envoyez le lien au destinataire par votre canal habituel<br>
-                        3. Le <strong>code A2F</strong> sera fourni séparément par l'administrateur<br>
-                        4. Contactez l'administrateur pour obtenir le code d'authentification<br>
-                        5. Le fichier sera automatiquement supprimé après ${Math.ceil((new Date(data.expiration_date) - new Date()) / (1000 * 60 * 60 * 24))} jours
-                    </div>
-                    
-                    <div class="admin-notice" style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin-top: 20px;">
-                        <strong>⚠️ Important :</strong> Pour des raisons de sécurité, le code A2F n'est accessible que dans le dashboard administrateur. 
-                        L'administrateur devra le communiquer au destinataire par un canal séparé.
-                    </div>
-                </div>
-            `;
-        } else {
-            uploadResult.innerHTML = `<h3>❌ Erreur lors de la finalisation : ${data.error}</h3>`;
-        }
-    })
-    .catch(error => {
-        console.error('Erreur finalisation:', error);
-        uploadResult.innerHTML = `<h3>❌ Erreur lors de la finalisation</h3>`;
-    });
-}
-
-// Nouvelle fonction pour copier le lien de téléchargement
-function copyDownloadLink(url) {
-    // IMPORTANT: Empêcher le comportement par défaut
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-    
-    const button = event.target;
-    const originalText = button.innerHTML;
-    
-    // Ajouter la classe d'animation
-    button.classList.add('copying');
-    button.innerHTML = '✅ Lien copié !';
-    
-    navigator.clipboard.writeText(url).then(() => {
-        // Afficher la notification popup
-        showCopyNotification('Lien de téléchargement copié dans le presse-papiers !');
-        
-        // Retourner à l'état normal après 2 secondes
-        setTimeout(() => {
-            button.classList.remove('copying');
-            button.innerHTML = originalText;
-        }, 2000);
-        
-    }).catch(() => {
-        // Fallback pour les navigateurs plus anciens
-        const textArea = document.createElement('textarea');
-        textArea.value = url;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.select();
-        textArea.setSelectionRange(0, 99999);
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        
-        // Afficher la notification même en fallback
-        showCopyNotification('Lien de téléchargement copié !');
-        
-        // Retourner à l'état normal
-        setTimeout(() => {
-            button.classList.remove('copying');
-            button.innerHTML = originalText;
-        }, 2000);
-    });
-}
-
-// Fonction améliorée pour afficher une notification de copie
-function showCopyNotification(message) {
-    // Supprimer les notifications existantes
-    const existingNotifications = document.querySelectorAll('.copy-notification');
-    existingNotifications.forEach(notif => notif.remove());
-    
-    // Créer la nouvelle notification
-    const notification = document.createElement('div');
-    notification.className = 'copy-notification slide-in';
-    notification.innerHTML = message;
-    
-    document.body.appendChild(notification);
-    
-    // Ajouter l'effet de rebond après l'apparition
-    setTimeout(() => {
-        notification.classList.add('bounce');
-    }, 400);
-    
-    // Supprimer la notification après 3 secondes
-    setTimeout(() => {
-        notification.classList.remove('slide-in', 'bounce');
-        notification.classList.add('slide-out');
-        
-        // Supprimer l'élément du DOM après l'animation
-        setTimeout(() => {
-            if (notification.parentNode) {
-                document.body.removeChild(notification);
-            }
-        }, 300);
-    }, 3000);
-}

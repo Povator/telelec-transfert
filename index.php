@@ -1,4 +1,14 @@
 <?php
+/**
+ * Page d'accueil de l'application TeleLec-Transfert
+ * 
+ * Point d'entrée principal présentant les fonctionnalités
+ * et redirigeant vers l'interface d'upload.
+ *
+ * @author  TeleLec
+ * @version 1.0
+ */
+
 session_start();
 ?>
 <!DOCTYPE html>

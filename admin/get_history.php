@@ -1,4 +1,41 @@
 <?php
+/**
+ * Récupération de l'historique de téléchargement
+ * 
+ * API endpoint pour obtenir l'historique des téléchargements
+ * d'un fichier spécifique avec géolocalisation.
+ *
+ * @author  TeleLec
+ * @version 1.1
+ * @requires Session admin active
+ * @method GET
+ */
+
+/**
+ * Récupère l'historique complet des téléchargements d'un fichier
+ *
+ * @param PDO $conn Connexion à la base de données
+ * @param int $fileId Identifiant du fichier
+ *
+ * @return array Historique avec IP, navigateur, ville et timestamps
+ *
+ * @throws PDOException Si erreur de base de données
+ */
+function getFileDownloadHistory($conn, $fileId) {
+    // ...existing code...
+}
+
+/**
+ * Formate l'historique pour l'affichage JSON
+ *
+ * @param array $rawHistory Données brutes de l'historique
+ *
+ * @return array Historique formaté avec labels utilisateur
+ */
+function formatHistoryForDisplay($rawHistory) {
+    // ...existing code...
+}
+
 session_start();
 if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
     http_response_code(403);

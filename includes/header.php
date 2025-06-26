@@ -1,5 +1,6 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
+// S'assurer qu'il n'y a pas d'espaces avant <?php
+if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 date_default_timezone_set('Europe/Paris');

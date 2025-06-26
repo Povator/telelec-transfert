@@ -1,15 +1,13 @@
 <?php
 /**
- * Gestionnaire d'upload de fichiers
+ * Gestionnaire d'upload de fichiers sécurisé
  * 
- * Ce script gère le téléversement de fichiers, incluant:
- * - La validation des fichiers
- * - La sécurisation des noms de fichiers
- * - La gestion des doublons
- * - L'analyse antivirus
+ * Ce script gère le téléversement de fichiers avec validation complète,
+ * analyse antivirus et stockage sécurisé des métadonnées.
  * 
  * @author  TeleLec
- * @version 1.3
+ * @version 2.0
+ * @since   1.0
  */
 
 // TEMPORAIRE : Pour debug
@@ -114,7 +112,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
 }
 
-// FONCTIONS INTÉGRÉES (pas de doublons)
+/**
+ * Valide l'extension d'un fichier uploadé
+ *
+ * @param string $filename Nom du fichier à valider
+ *
+ * @return bool True si l'extension est autorisée, False sinon
+ */
+function validateFileExtension($filename) {
+    $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar', 'txt'];
+    $fileExtension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    return in_array($fileExtension, $allowedExtensions);
+}
+
+/**
+ * Déplace et analyse un fichier uploadé
+ *
+ * @param string $source Chemin du fichier temporaire
+ * @param string $destination Chemin de destination final
+ *
+ * @return array Résultat de l'opération avec status et message
+ * 
+ * @throws Exception Si le déplacement échoue
+ */
 function moveAndScanFileSimple($source, $destination) {
     if (!move_uploaded_file($source, $destination)) {
         return [
@@ -164,6 +184,13 @@ function moveAndScanFileSimple($source, $destination) {
     return $basicResult;
 }
 
+/**
+ * Effectue un scan antivirus basique intégré
+ *
+ * @param string $filepath Chemin complet du fichier à analyser
+ *
+ * @return array Résultat du scan avec status, message et temps d'exécution
+ */
 function scanFileBasicIntegrated($filepath) {
     $fileSize = filesize($filepath);
     if ($fileSize === false) {
@@ -237,6 +264,11 @@ function scanFileBasicIntegrated($filepath) {
     ];
 }
 
+/**
+ * Génère un code de téléchargement unique
+ *
+ * @return string Code alphanumérique de 8 caractères
+ */
 function generateDownloadCode($length = 8) {
     $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     $code = '';
@@ -246,6 +278,13 @@ function generateDownloadCode($length = 8) {
     return $code;
 }
 
+/**
+ * Obtient la ville à partir d'une adresse IP
+ *
+ * @param string $ip Adresse IP à géolocaliser
+ *
+ * @return string Nom de la ville ou 'Inconnue' si échec
+ */
 function getCity($ip) {
     if ($ip === '127.0.0.1' || $ip === '::1') {
         return 'Local';
@@ -260,7 +299,14 @@ function getCity($ip) {
     return 'Inconnue';
 }
 
-// Améliorer la fonction de log :
+/**
+ * Enregistre une tentative de virus dans les logs
+ *
+ * @param string $filepath Chemin du fichier infecté
+ * @param string $threat Description de la menace détectée
+ *
+ * @return bool True si le log a été enregistré avec succès
+ */
 function logVirusAttempt($filepath, $threat) {
     try {
         $conn = new PDO("mysql:host=db;dbname=telelec;charset=utf8", 'telelecuser', 'userpassword');

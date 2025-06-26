@@ -1,20 +1,27 @@
 <?php
 /**
- * Système d'analyse antivirus optimisé avec ClamAV
+ * Module de gestion antivirus complet
  * 
+ * Fournit les fonctionnalités d'analyse de fichiers avec support
+ * ClamAV et analyse heuristique de base pour la détection de menaces.
+ *
  * @author  TeleLec
- * @version 2.3 - Version corrigée
+ * @version 3.0
+ * @package TelelecTransfert\Security
  */
 
 /**
- * Analyse un fichier à la recherche de virus ou malwares
+ * Analyse un fichier avec ClamAV
+ *
+ * @param string $filePath Chemin complet du fichier à analyser
+ *
+ * @return array Résultat de l'analyse avec status, message et détails
  * 
- * @param string $filepath Chemin vers le fichier à analyser
- * @return array Tableau contenant [status => true/false/warning, message => string]
+ * @throws Exception Si ClamAV n'est pas accessible
  */
-function scanFile($filepath) {
+function scanWithClamAV($filePath) {
     // Vérifier si le fichier existe
-    if (!file_exists($filepath)) {
+    if (!file_exists($filePath)) {
         return [
             'status' => false, 
             'message' => 'Fichier non trouvé',
@@ -36,21 +43,21 @@ function scanFile($filepath) {
             $useSudo = true;
         } else {
             // Utiliser le scan basique si ClamAV n'est pas disponible
-            return scanFileBasic($filepath);
+            return scanFileBasic($filePath);
         }
     }
     
-    $fileSize = filesize($filepath);
+    $fileSize = filesize($filePath);
     
     // Pour les fichiers très volumineux, utiliser le scan basique
     if ($fileSize > 10 * 1024 * 1024) { // Plus de 10 MB
-        $basicResult = scanFileBasic($filepath);
+        $basicResult = scanFileBasic($filePath);
         $basicResult['message'] .= ' (Fichier volumineux - ClamAV ignoré)';
         return $basicResult;
     }
     
     // Échapper le chemin du fichier pour la sécurité
-    $escapedPath = escapeshellarg($filepath);
+    $escapedPath = escapeshellarg($filePath);
     
     // Commande ClamAV optimisée avec timeout et PATH explicite
     $pathEnv = 'PATH=/usr/bin:/bin:/usr/local/bin';
@@ -89,34 +96,35 @@ function scanFile($filepath) {
             
         case 2:
             // Erreur ClamAV - fallback vers scan basique
-            $basicResult = scanFileBasic($filepath);
+            $basicResult = scanFileBasic($filePath);
             $basicResult['message'] .= ' (ClamAV erreur)';
             return $basicResult;
             
         case 124:
             // Timeout - fallback vers scan basique
-            $basicResult = scanFileBasic($filepath);
+            $basicResult = scanFileBasic($filePath);
             $basicResult['message'] .= ' (ClamAV timeout)';
             return $basicResult;
             
         default:
             // Autre erreur - fallback vers scan basique
-            $basicResult = scanFileBasic($filepath);
+            $basicResult = scanFileBasic($filePath);
             $basicResult['message'] .= " (ClamAV erreur code $returnCode)";
             return $basicResult;
     }
 }
 
 /**
- * Scan basique de sécurité avec détection EICAR et patterns malveillants
- * 
- * @param string $filepath Chemin vers le fichier à analyser
- * @return array Résultat du scan
+ * Effectue une analyse heuristique basique d'un fichier
+ *
+ * @param string $filePath Chemin complet du fichier à analyser
+ *
+ * @return array Résultat de l'analyse avec status, message et temps d'exécution
  */
-function scanFileBasic($filepath) {
+function scanFileBasic($filePath) {
     $startTime = microtime(true);
     
-    $fileSize = filesize($filepath);
+    $fileSize = filesize($filePath);
     
     // Vérifier la taille du fichier
     if ($fileSize < 1) {
@@ -129,7 +137,7 @@ function scanFileBasic($filepath) {
     
     // Lire le contenu du fichier (limité pour les gros fichiers)
     $bytesToRead = min(32768, $fileSize); // Lire max 32 Ko
-    $handle = fopen($filepath, 'rb');
+    $handle = fopen($filePath, 'rb');
     if (!$handle) {
         return [
             'status' => 'warning',
@@ -151,7 +159,7 @@ function scanFileBasic($filepath) {
     }
     
     // Extensions dangereuses
-    $fileInfo = pathinfo($filepath);
+    $fileInfo = pathinfo($filePath);
     $extension = strtolower($fileInfo['extension'] ?? '');
     
     $dangerousExtensions = [
@@ -239,9 +247,9 @@ function scanFileBasic($filepath) {
 }
 
 /**
- * Vérifie le statut de ClamAV sur le système avec détection robuste
- * 
- * @return array Informations sur l'état de ClamAV
+ * Obtient le statut complet de l'installation ClamAV
+ *
+ * @return array Informations détaillées sur ClamAV (installation, version, mise à jour)
  */
 function getClamAVStatus() {
     $status = [
@@ -382,39 +390,9 @@ function getClamAVStatus() {
 }
 
 /**
- * Scanne un fichier rapidement (pour uploads)
- */
-function quickScanFile($filePath) {
-    if (!file_exists($filePath)) {
-        return ['status' => false, 'message' => 'Fichier non trouvé'];
-    }
-    
-    $clamPath = '/usr/bin/clamscan';
-    if (!is_executable($clamPath)) {
-        // Fallback vers scan basique
-        $result = scanFileBasic($filePath);
-        return ['status' => $result['status'], 'message' => $result['message']];
-    }
-    
-    $escapedPath = escapeshellarg($filePath);
-    $command = "timeout 30 $clamPath --no-summary --quiet $escapedPath 2>/dev/null";
-    
-    exec($command, $output, $returnCode);
-    
-    switch ($returnCode) {
-        case 0:
-            return ['status' => true, 'message' => 'OK'];
-        case 1:
-            return ['status' => false, 'message' => 'VIRUS DÉTECTÉ'];
-        default:
-            // Fallback vers scan basique en cas d'erreur
-            $result = scanFileBasic($filePath);
-            return ['status' => $result['status'], 'message' => 'Scan basique: ' . $result['message']];
-    }
-}
-
-/**
- * Met à jour les définitions ClamAV
+ * Met à jour les définitions de virus ClamAV
+ *
+ * @return array Résultat de la mise à jour avec succès, message et code de retour
  */
 function updateClamAVDefinitions() {
     $command = "sudo freshclam 2>&1";
@@ -428,7 +406,19 @@ function updateClamAVDefinitions() {
 }
 
 /**
- * Obtient les statistiques de scan
+ * Vérifie si le daemon ClamAV est actif
+ *
+ * @return bool True si le daemon est en cours d'exécution
+ */
+function isClamAVDaemonActive() {
+    exec("systemctl is-active clamav-daemon 2>/dev/null", $output, $returnCode);
+    return $returnCode === 0 && !empty($output) && trim($output[0]) === 'active';
+}
+
+/**
+ * Obtient les statistiques d'analyse antivirus
+ *
+ * @return array Statistiques incluant total des scans, menaces trouvées, etc.
  */
 function getClamAVStats() {
     return [
@@ -436,14 +426,6 @@ function getClamAVStats() {
         'threats_found' => 0,
         'last_scan' => null
     ];
-}
-
-/**
- * Vérifie si ClamAV daemon est actif
- */
-function isClamAVDaemonActive() {
-    exec("systemctl is-active clamav-daemon 2>/dev/null", $output, $returnCode);
-    return $returnCode === 0 && !empty($output) && trim($output[0]) === 'active';
 }
 
 /**

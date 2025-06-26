@@ -1,18 +1,25 @@
 <?php
-session_start();
-if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
-    header('Location: /admin/login.php');
-    exit;
-}
+/**
+ * Interface de scan manuel de fichiers
+ * 
+ * Permet aux administrateurs de tester l'analyse antivirus
+ * sur des fichiers uploadés manuellement.
+ *
+ * @author  TeleLec
+ * @version 1.3
+ * @requires Session admin active
+ */
 
-require_once '../includes/antivirus.php';
-
-$result = null;
-$error = null;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['fileToScan'])) {
-    $uploadedFile = $_FILES['fileToScan'];
-    
+/**
+ * Traite l'upload et lance l'analyse d'un fichier
+ *
+ * @param array $uploadedFile Données du fichier uploadé ($_FILES)
+ *
+ * @return array Résultat de l'analyse avec détails
+ *
+ * @throws Exception Si erreur lors du traitement
+ */
+function processFileUploadAndScan($uploadedFile) {
     if ($uploadedFile['error'] === UPLOAD_ERR_OK) {
         $tempPath = $uploadedFile['tmp_name'];
         $originalName = $uploadedFile['name'];
@@ -23,10 +30,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['fileToScan'])) {
         $result['size'] = filesize($tempPath);
         
         // Supprimer le fichier temporaire
-        unlink($tempPath);
+        cleanupTemporaryFile($tempPath);
+        
+        return $result;
     } else {
-        $error = "Erreur lors de l'upload du fichier.";
+        throw new Exception("Erreur lors de l'upload du fichier.");
     }
+}
+
+/**
+ * Valide le fichier uploadé avant analyse
+ *
+ * @param array $uploadedFile Données du fichier uploadé
+ *
+ * @return bool True si fichier valide
+ *
+ * @throws Exception Si fichier invalide ou erreur d'upload
+ */
+function validateUploadedFile($uploadedFile) {
+    $allowedMimeTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    $maxFileSize = 2 * 1024 * 1024; // 2 Mo
+
+    if (!in_array($uploadedFile['type'], $allowedMimeTypes)) {
+        throw new Exception("Type de fichier non autorisé.");
+    }
+
+    if ($uploadedFile['size'] > $maxFileSize) {
+        throw new Exception("Le fichier est trop volumineux.");
+    }
+
+    return true;
+}
+
+/**
+ * Nettoie les fichiers temporaires après analyse
+ *
+ * @param string $tempPath Chemin du fichier temporaire
+ *
+ * @return bool True si nettoyage réussi
+ */
+function cleanupTemporaryFile($tempPath) {
+    return unlink($tempPath);
 }
 ?>
 

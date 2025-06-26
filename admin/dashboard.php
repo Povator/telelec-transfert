@@ -1,4 +1,15 @@
 <?php
+/**
+ * Dashboard principal d'administration
+ * 
+ * Interface de gestion des fichiers uploadés avec fonctionnalités
+ * de filtrage, modification et suppression en lot.
+ *
+ * @author  TeleLec
+ * @version 2.1
+ * @requires Session admin active
+ */
+
 session_start();
 if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
     header('Location: /admin/login.php');
@@ -238,3 +249,40 @@ date_default_timezone_set('Europe/Paris');
     <?php include '../includes/footer.php'; ?>
 </body>
 </html>
+
+<?php
+/**
+ * Formate une taille de fichier en octets vers une unité lisible
+ *
+ * @param int $bytes Taille en octets
+ * @param int $precision Nombre de décimales à afficher
+ *
+ * @return string Taille formatée avec unité (B, KB, MB, GB)
+ */
+function formatFileSize($bytes, $precision = 2) {
+    $units = ['B', 'KB', 'MB', 'GB'];
+    $factor = floor((strlen($bytes) - 1) / 3);
+    return sprintf("%.{$precision}f", $bytes / pow(1024, $factor)) . ' ' . $units[$factor];
+}
+
+/**
+ * Génère le statut d'affichage selon le statut antivirus
+ *
+ * @param string $antivirusStatus Statut antivirus du fichier
+ * @param string $antivirusMessage Message d'accompagnement
+ *
+ * @return array Tableau contenant la classe CSS et le texte à afficher
+ */
+function getAntivirusStatusDisplay($antivirusStatus, $antivirusMessage) {
+    $status = ['class' => 'badge bg-secondary', 'text' => 'Inconnu'];
+    
+    if ($antivirusStatus == 'true' || $antivirusStatus === '1' || $antivirusStatus === 1) {
+        $status = ['class' => 'badge bg-success', 'text' => 'Sain'];
+    } elseif ($antivirusStatus == 'warning') {
+        $status = ['class' => 'badge bg-warning', 'text' => 'Attention'];
+    } elseif ($antivirusStatus == 'false' || $antivirusStatus === '0' || $antivirusStatus === 0) {
+        $status = ['class' => 'badge bg-danger', 'text' => 'Virus'];
+    }
+    
+    return $status;
+}

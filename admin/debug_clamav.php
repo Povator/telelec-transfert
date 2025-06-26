@@ -1,4 +1,29 @@
 <?php
+/**
+ * Outil de diagnostic ClamAV
+ * 
+ * Effectue un diagnostic complet de l'installation ClamAV
+ * avec suggestions de résolution des problèmes.
+ *
+ * @author  TeleLec
+ * @version 1.2
+ * @requires Session admin active
+ */
+
+/**
+ * Affiche une sortie formatée pour le diagnostic
+ *
+ * @param string $message Message à afficher
+ */
+function output($message) {
+    global $isCLI;
+    if ($isCLI) {
+        echo strip_tags($message) . "\n";
+    } else {
+        echo $message;
+    }
+}
+
 // Détection si on est en mode CLI ou web
 $isCLI = php_sapi_name() === 'cli';
 
@@ -9,15 +34,6 @@ if (!$isCLI) {
         exit;
     }
     echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Debug ClamAV</title></head><body>";
-}
-
-function output($text) {
-    global $isCLI;
-    if ($isCLI) {
-        echo strip_tags($text) . "\n";
-    } else {
-        echo $text;
-    }
 }
 
 output("<h1>🔍 Diagnostic ClamAV</h1>");

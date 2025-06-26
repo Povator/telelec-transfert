@@ -1,4 +1,15 @@
 <?php
+/**
+ * Interface de consultation des logs système
+ * 
+ * Affiche les journaux d'activité, alertes de sécurité et analyses
+ * antivirus avec pagination et filtrage avancé.
+ *
+ * @author  TeleLec
+ * @version 1.8
+ * @requires Session admin active
+ */
+
 session_start();
 // Fuseau horaire déjà défini ici, mais on s'assure qu'il est au bon endroit (tout en haut)
 date_default_timezone_set('Europe/Paris');
@@ -16,39 +27,54 @@ try {
     $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Statistiques en temps réel
-    $stats = [
-        'online_users' => 0,
-        'total_uploads_today' => 0,
-        'failed_login_attempts' => 0,
-        'active_files' => 0
-    ];
+    /**
+     * Génère des statistiques sur les logs en temps réel
+     *
+     * @param PDO $conn Connexion à la base de données
+     *
+     * @return array Statistiques incluant utilisateurs en ligne, erreurs récentes, etc.
+     *
+     * @throws PDOException Si erreur de base de données
+     */
+    function generateLogStats($conn) {
+        $stats = [
+            'online_users' => 0,
+            'total_uploads_today' => 0,
+            'failed_login_attempts' => 0,
+            'active_files' => 0
+        ];
 
-    // Utilisateurs en ligne (sessions actives dernières 15 minutes)
-    $sql = "SELECT COUNT(*) FROM sessions WHERE last_activity > DATE_SUB(NOW(), INTERVAL 15 MINUTE)";
-    $stmt = $conn->query($sql);
-    $stats['online_users'] = $stmt->fetchColumn();
+        // Utilisateurs en ligne (sessions actives dernières 15 minutes)
+        $sql = "SELECT COUNT(*) FROM sessions WHERE last_activity > DATE_SUB(NOW(), INTERVAL 15 MINUTE)";
+        $stmt = $conn->query($sql);
+        $stats['online_users'] = $stmt->fetchColumn();
 
-    // Uploads aujourd'hui
-    $sql = "SELECT COUNT(*) FROM file_logs WHERE action_type = 'upload_complete' AND action_date >= CURDATE()";
-    $stmt = $conn->query($sql);
-    $stats['total_uploads_today'] = $stmt->fetchColumn();
+        // Uploads aujourd'hui
+        $sql = "SELECT COUNT(*) FROM file_logs WHERE action_type = 'upload_complete' AND action_date >= CURDATE()";
+        $stmt = $conn->query($sql);
+        $stats['total_uploads_today'] = $stmt->fetchColumn();
 
-    // Tentatives de connexion échouées (dernières 24h)
-    $sql = "SELECT COUNT(*) FROM file_logs WHERE action_type = 'failed_login' AND action_date > DATE_SUB(NOW(), INTERVAL 24 HOUR)";
-    $stmt = $conn->query($sql);
-    $stats['failed_login_attempts'] = $stmt->fetchColumn();
+        // Tentatives de connexion échouées (dernières 24h)
+        $sql = "SELECT COUNT(*) FROM file_logs WHERE action_type = 'failed_login' AND action_date > DATE_SUB(NOW(), INTERVAL 24 HOUR)";
+        $stmt = $conn->query($sql);
+        $stats['failed_login_attempts'] = $stmt->fetchColumn();
 
-    // Fichiers actifs
-    $sql = "SELECT COUNT(*) FROM files WHERE deleted = 0";
-    $stmt = $conn->query($sql);
-    $stats['active_files'] = $stmt->fetchColumn();
+        // Fichiers actifs
+        $sql = "SELECT COUNT(*) FROM files WHERE deleted = 0";
+        $stmt = $conn->query($sql);
+        $stats['active_files'] = $stmt->fetchColumn();
 
-    // Dernières alertes - MODIFIÉ pour récupérer plus d'entrées
+        return $stats;
+    }
+
+    $stats = generateLogStats($conn);
+
+    // Dernières alertes - Ajouter les connexions admin
     $sql = "SELECT *, action_date 
             FROM file_logs 
-            WHERE status = 'error' OR action_type IN ('failed_login', 'virus_detected', 'unauthorized_access')
-            ORDER BY action_date DESC LIMIT 50"; // Augmenté pour avoir plus d'alertes
+            WHERE status = 'error' 
+               OR action_type IN ('failed_login', 'virus_detected', 'unauthorized_access', 'admin_login_success')
+            ORDER BY action_date DESC LIMIT 50";
     $stmt = $conn->prepare($sql);
     $stmt->execute();
     $alerts = $stmt->fetchAll(PDO::FETCH_ASSOC);

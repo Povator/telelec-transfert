@@ -1,99 +1,139 @@
-/** @type {HTMLAnchorElement[]} */
-const listItems = document.querySelectorAll('.list-group-item');
-
-let dragStartClientY;
-let draggedItem;
+/**
+ * Scripts utilitaires généraux pour TeleLec-Transfert
+ * 
+ * Gère les interactions de base, drag & drop et fonctionnalités
+ * communes à travers l'application.
+ *
+ * @author  TeleLec
+ * @version 1.2
+ */
 
 /**
- * @param {HTMLElement} target 
+ * Initialise les fonctionnalités drag & drop sur les éléments de liste
+ *
+ * @param {NodeList} listItems Collection d'éléments à rendre triables
  */
-const addBorder = (target) => {
-    if (target !== draggedItem) {
-        target.classList.add('border', 'border-2', 'border-primary');
-    }
-}
+function initializeDragAndDrop(listItems) {
+    /** @type {HTMLAnchorElement[]} */
+    const items = listItems;
 
-/**
- * @param {HTMLElement} target 
- */
-const removeBorder = (target) => {
-    if (target !== draggedItem) {
-        target.classList.remove('border', 'border-2', 'border-primary');
-    }
-}
+    let dragStartClientY;
+    let draggedItem;
 
-/**
- * @param {DragEvent} e 
- */
-const handleDragStart = (e) => {
-    /** @type {HTMLAnchorElement} */
-    const target = e.target;
-
-    target.style.opacity = 0.5;
-
-    draggedItem = target;
-    dragStartClientY = e.clientY;
-}
-
-/**
- * @param {DragEvent} e 
- */
-const handleDragEnter = (e) => {
-    addBorder(e.target);
-}
-
-/**
- * @param {DragEvent} e 
- */
-const handleDragLeave = (e) => {
-    removeBorder(e.target);
-}
-
-/**
- * @param {DragEvent} e 
- */
-const handleDragOver = (e) => {
-    e.preventDefault();
-}
-
-/**
- * @param {DragEvent} e 
- */
-const handleDragEnd = (e) => {
-    /** @type {HTMLAnchorElement} */
-    const target = e.target;
-
-    target.classList.add('bg-primary', 'text-white');
-    target.style.opacity = 1;
-
-    setTimeout(() => {
-        target.classList.remove('bg-primary', 'text-white');
-    }, 500);
-}
-
-/**
- * @param {DragEvent} e 
- */
-const handleDrop = (e) => {
-    e.preventDefault();
-    
-    /** @type {HTMLAnchorElement} */
-    const target = e.target;
-
-    if (dragStartClientY > e.clientY) {
-        target.parentNode.insertBefore(draggedItem, target.previousSibling);
-    } else {
-        target.parentNode.insertBefore(draggedItem, target.nextSibling);
+    /**
+     * @param {HTMLElement} target 
+     */
+    const addBorder = (target) => {
+        if (target !== draggedItem) {
+            target.classList.add('border', 'border-2', 'border-primary');
+        }
     }
 
-    removeBorder(target);
+    /**
+     * @param {HTMLElement} target 
+     */
+    const removeBorder = (target) => {
+        if (target !== draggedItem) {
+            target.classList.remove('border', 'border-2', 'border-primary');
+        }
+    }
 
-    draggedItem = undefined;
+    /**
+     * Gère le début du glisser-déposer
+     *
+     * @param {DragEvent} event Événement de drag start
+     */
+    function handleDragStart(event) {
+        /** @type {HTMLAnchorElement} */
+        const target = event.target;
+
+        target.style.opacity = 0.5;
+
+        draggedItem = target;
+        dragStartClientY = event.clientY;
+    }
+
+    /**
+     * Gère l'entrée dans une zone de drop
+     *
+     * @param {DragEvent} event Événement de drag enter
+     */
+    function handleDragEnter(event) {
+        addBorder(event.target);
+    }
+
+    /**
+     * Gère la sortie d'une zone de drop
+     *
+     * @param {DragEvent} event Événement de drag leave
+     */
+    function handleDragLeave(event) {
+        removeBorder(event.target);
+    }
+
+    /**
+     * Gère le survol d'une zone de drop
+     *
+     * @param {DragEvent} event Événement de drag over
+     */
+    function handleDragOver(event) {
+        event.preventDefault();
+    }
+
+    /**
+     * Gère la fin du glisser-déposer
+     *
+     * @param {DragEvent} event Événement de drag end
+     */
+    function handleDragEnd(event) {
+        /** @type {HTMLAnchorElement} */
+        const target = event.target;
+
+        target.classList.add('bg-primary', 'text-white');
+        target.style.opacity = 1;
+
+        setTimeout(() => {
+            target.classList.remove('bg-primary', 'text-white');
+        }, 500);
+    }
+
+    /**
+     * Gère le dépôt d'un élément
+     *
+     * @param {DragEvent} event Événement de drop
+     */
+    function handleDrop(event) {
+        event.preventDefault();
+        
+        /** @type {HTMLAnchorElement} */
+        const target = event.target;
+
+        if (dragStartClientY > event.clientY) {
+            target.parentNode.insertBefore(draggedItem, target.previousSibling);
+        } else {
+            target.parentNode.insertBefore(draggedItem, target.nextSibling);
+        }
+
+        removeBorder(target);
+
+        draggedItem = undefined;
+    }
+
+    // Activer le tri des éléments (liste)
+    items.forEach(item => {
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragenter', handleDragEnter);
+        item.addEventListener('dragleave', handleDragLeave);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('dragend', handleDragEnd);
+        item.addEventListener('drop', handleDrop);
+    });
 }
 
 /**
- * Fonction pour supprimer un fichier
- * @param {number} fileId - L'ID du fichier à supprimer
+ * Supprime un fichier avec confirmation
+ *
+ * @param {number} fileId Identifiant du fichier à supprimer
  */
 function deleteFile(fileId) {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce fichier ?')) {
@@ -120,12 +160,27 @@ function deleteFile(fileId) {
     }
 }
 
-// Activer le tri des éléments (liste)
-listItems.forEach(listItem => {
-    listItem.addEventListener('dragstart', handleDragStart);
-    listItem.addEventListener('dragenter', handleDragEnter);
-    listItem.addEventListener('dragleave', handleDragLeave);
-    listItem.addEventListener('dragover', handleDragOver);
-    listItem.addEventListener('dragend', handleDragEnd);
-    listItem.addEventListener('drop', handleDrop);
-});
+/**
+ * Affiche une notification temporaire à l'utilisateur
+ *
+ * @param {string} message Message à afficher
+ * @param {string} type Type de notification ('success', 'error', 'info')
+ * @param {number} duration Durée d'affichage en millisecondes
+ */
+function showNotification(message, type = 'info', duration = 3000) {
+    // ...existing code...
+}
+
+/**
+ * Valide un formulaire avant soumission
+ *
+ * @param {HTMLFormElement} form Formulaire à valider
+ *
+ * @return {boolean} True si formulaire valide
+ */
+function validateForm(form) {
+    // ...existing code...
+}
+
+// Initialiser les fonctionnalités drag & drop sur les éléments de liste
+initializeDragAndDrop(document.querySelectorAll('.list-group-item'));

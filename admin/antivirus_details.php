@@ -1,21 +1,245 @@
 <?php
+/**
+ * Interface détaillée de gestion antivirus
+ * 
+ * Fournit un dashboard complet des analyses antivirus avec
+ * statistiques, historique et génération de rapports CSV.
+ *
+ * @author  TeleLec
+ * @version 2.0
+ * @requires Session admin active
+ * @requires Module antivirus inclus
+ */
+
+// DÉMARRAGE DE SESSION EN PREMIER
 session_start();
-if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
-    header('Location: /admin/login.php');
-    exit;
-}
-
-// Fuseau horaire
-date_default_timezone_set('Europe/Paris');
-
-// Inclure les fonctions antivirus
-require_once '../includes/antivirus.php';
 
 // Configuration base de données
 $host = 'db';
 $db = 'telelec';
 $user = 'telelecuser';
 $pass = 'userpassword';
+
+// DÉFINITION DES FONCTIONS
+/**
+ * Formate une taille de fichier en octets vers une unité lisible
+ *
+ * @param int $bytes Taille en octets
+ *
+ * @return string Taille formatée avec unité (KB, MB, GB)
+ */
+function formatFileSize($bytes) {
+    if ($bytes >= 1073741824) {
+        return number_format($bytes / 1073741824, 2) . ' GB';
+    } elseif ($bytes >= 1048576) {
+        return number_format($bytes / 1048576, 2) . ' MB';
+    } elseif ($bytes >= 1024) {
+        return number_format($bytes / 1024, 2) . ' KB';
+    } else {
+        return $bytes . ' bytes';
+    }
+}
+
+/**
+ * Génère un rapport CSV des analyses antivirus
+ *
+ * @param PDO $conn Connexion à la base de données
+ *
+ * @return void Force le téléchargement du fichier CSV
+ *
+ * @throws Exception Si erreur lors de la génération
+ */
+function generateAntivirusReport($conn) {
+    $sql = "SELECT 
+                f.filename,
+                f.file_size,
+                f.upload_date,
+                f.antivirus_status,
+                f.antivirus_message
+            FROM files f 
+            WHERE f.deleted = 0
+            ORDER BY f.upload_date DESC";
+    
+    $stmt = $conn->prepare($sql);
+    $stmt->execute();
+    $scans = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    if (empty($scans)) {
+        $scans = [[
+            'filename' => 'Aucun fichier trouvé',
+            'file_size' => 0,
+            'upload_date' => date('Y-m-d H:i:s'),
+            'antivirus_status' => 'N/A',
+            'antivirus_message' => 'Aucune donnée disponible'
+        ]];
+    }
+    
+    $filename = 'rapport_antivirus_' . date('Y-m-d_H-i-s') . '.csv';
+    
+    // Nettoyer le buffer de sortie
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    
+    // BOM UTF-8 pour Excel
+    echo "\xEF\xBB\xBF";
+    
+    $output = fopen('php://output', 'w');
+    
+    fputcsv($output, [
+        'Nom du fichier',
+        'Taille',
+        'Date upload',
+        'Résultat scan',
+        'Message antivirus'
+    ]);
+    
+    foreach ($scans as $scan) {
+        $status_text = 'Inconnu';
+        if ($scan['antivirus_status'] === 'true' || $scan['antivirus_status'] === '1') {
+            $status_text = 'Fichier sain';
+        } elseif ($scan['antivirus_status'] === 'false' || $scan['antivirus_status'] === '0') {
+            $status_text = 'Virus détecté';
+        } elseif ($scan['antivirus_status'] === 'warning') {
+            $status_text = 'Avertissement';
+        }
+        
+        fputcsv($output, [
+            $scan['filename'],
+            formatFileSize($scan['file_size']),
+            $scan['upload_date'],
+            $status_text,
+            $scan['antivirus_message'] ?: 'Aucun message'
+        ]);
+    }
+    
+    fclose($output);
+    exit();
+}
+
+/**
+ * Récupère les statistiques globales antivirus
+ *
+ * @param PDO $conn Connexion à la base de données
+ *
+ * @return array Statistiques avec totaux par statut
+ *
+ * @throws PDOException Si erreur de requête
+ */
+function getAntivirusStats($conn) {
+    $stats = ['total' => 0, 'clean' => 0, 'warning' => 0, 'virus' => 0];
+
+    try {
+        // Total des fichiers
+        $stmt = $conn->query("SELECT COUNT(*) FROM files WHERE deleted = 0");
+        $stats['total'] = (int)$stmt->fetchColumn();
+        
+        // Fichiers sains
+        $stmt = $conn->query("SELECT COUNT(*) FROM files WHERE (antivirus_status = 'true' OR antivirus_status = '1') AND deleted = 0");
+        $stats['clean'] = (int)$stmt->fetchColumn();
+        
+        // Fichiers avec avertissement
+        $stmt = $conn->query("SELECT COUNT(*) FROM files WHERE antivirus_status = 'warning' AND deleted = 0");
+        $stats['warning'] = (int)$stmt->fetchColumn();
+        
+        // Fichiers infectés
+        $stmt = $conn->query("SELECT COUNT(*) FROM files WHERE (antivirus_status = 'false' OR antivirus_status = '0') AND deleted = 0");
+        $stats['virus'] = (int)$stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log("Erreur getAntivirusStats: " . $e->getMessage());
+    }
+    
+    return $stats;
+}
+
+/**
+ * Récupère les derniers virus détectés
+ *
+ * @param PDO $conn Connexion à la base de données
+ * @param int $limit Nombre maximum de résultats
+ *
+ * @return array Liste des fichiers infectés récents
+ */
+function getLatestVirusDetections($conn, $limit = 10) {
+    try {
+        // CORRECTION: Utiliser la valeur directement dans la requête au lieu de LIMIT ?
+        $limit = (int)$limit; // Sécurisation
+        $sql = "SELECT id, filename, upload_date, antivirus_message FROM files 
+                WHERE (antivirus_status = 'false' OR antivirus_status = '0') AND deleted = 0 
+                ORDER BY upload_date DESC LIMIT " . $limit;
+        
+        $stmt = $conn->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Erreur getLatestVirusDetections: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Récupère l'historique des analyses récentes
+ *
+ * @param PDO $conn Connexion à la base de données
+ * @param int $limit Nombre maximum de résultats
+ *
+ * @return array Historique des analyses avec détails
+ */
+function getRecentScans($conn, $limit = 15) {
+    try {
+        // CORRECTION: Utiliser la valeur directement dans la requête au lieu de LIMIT ?
+        $limit = (int)$limit; // Sécurisation
+        $sql = "SELECT l.*, COALESCE(f.filename, 'Fichier supprimé') as filename 
+                FROM file_logs l 
+                LEFT JOIN files f ON l.file_id = f.id 
+                WHERE l.action_type IN ('antivirus_scan', 'virus_detected', 'virus_attempt') 
+                ORDER BY l.action_date DESC 
+                LIMIT " . $limit;
+        
+        $stmt = $conn->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Erreur getRecentScans: " . $e->getMessage());
+        return [];
+    }
+}
+
+// TRAITEMENT DU RAPPORT CSV - UNE SEULE FOIS !
+if (isset($_POST['generate_report'])) {
+    error_log("DEBUG: Génération rapport CSV demandée");
+    
+    try {
+        $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
+        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        // Appel direct de la fonction de génération
+        generateAntivirusReport($conn);
+        
+    } catch (Exception $e) {
+        error_log("ERREUR génération rapport: " . $e->getMessage());
+        $_SESSION['error'] = "Erreur lors de la génération du rapport: " . $e->getMessage();
+        header('Location: ' . $_SERVER['PHP_SELF']);
+        exit();
+    }
+}
+
+// Vérification d'authentification admin
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
+    header('Location: /admin/login.php');
+    exit();
+}
+
+// MAINTENANT ON PEUT INCLURE LE HEADER SANS PROBLÈME
+require_once '../includes/antivirus.php';
 
 // Récupérer le statut de ClamAV
 $clamavStatus = getClamAVStatus();
@@ -24,42 +248,20 @@ $clamavStatus = getClamAVStatus();
 $stats = ['total' => 0, 'clean' => 0, 'warning' => 0, 'virus' => 0];
 $latestViruses = [];
 $recentScans = [];
-$error = null;
+$error = isset($_SESSION['error']) ? $_SESSION['error'] : null;
+
+// Nettoyer le message d'erreur de la session
+if (isset($_SESSION['error'])) {
+    unset($_SESSION['error']);
+}
 
 try {
     $conn = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Total des fichiers
-    $stmt = $conn->query("SELECT COUNT(*) FROM files WHERE deleted = 0");
-    $stats['total'] = (int)$stmt->fetchColumn();
-    
-    // Fichiers sains
-    $stmt = $conn->query("SELECT COUNT(*) FROM files WHERE (antivirus_status = 'true' OR antivirus_status = '1') AND deleted = 0");
-    $stats['clean'] = (int)$stmt->fetchColumn();
-    
-    // Fichiers avec avertissement
-    $stmt = $conn->query("SELECT COUNT(*) FROM files WHERE antivirus_status = 'warning' AND deleted = 0");
-    $stats['warning'] = (int)$stmt->fetchColumn();
-    
-    // Fichiers infectés
-    $stmt = $conn->query("SELECT COUNT(*) FROM files WHERE (antivirus_status = 'false' OR antivirus_status = '0') AND deleted = 0");
-    $stats['virus'] = (int)$stmt->fetchColumn();
-    
-    // Derniers virus détectés (avec limit sécurisé)
-    $stmt = $conn->query("SELECT id, filename, upload_date, antivirus_message FROM files 
-                         WHERE (antivirus_status = 'false' OR antivirus_status = '0') AND deleted = 0 
-                         ORDER BY upload_date DESC LIMIT 10");
-    $latestViruses = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Analyses récentes (avec meilleure requête)
-    $stmt = $conn->query("SELECT l.*, COALESCE(f.filename, 'Fichier supprimé') as filename 
-                         FROM file_logs l 
-                         LEFT JOIN files f ON l.file_id = f.id 
-                         WHERE l.action_type IN ('antivirus_scan', 'virus_detected', 'virus_attempt') 
-                         ORDER BY l.action_date DESC 
-                         LIMIT 15");
-    $recentScans = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stats = getAntivirusStats($conn);
+    $latestViruses = getLatestVirusDetections($conn, 10);
+    $recentScans = getRecentScans($conn, 15);
     
 } catch (PDOException $e) {
     $error = "Erreur de base de données: " . $e->getMessage();
@@ -93,9 +295,12 @@ try {
                 <button onclick="location.reload()" class="btn btn-refresh" title="Actualiser">
                     🔄 Actualiser
                 </button>
-                <button onclick="downloadReport()" class="btn btn-download" title="Télécharger le rapport">
-                    📊 Rapport
-                </button>
+                <form method="POST" action="" style="display: inline;">
+                    <input type="hidden" name="generate_report" value="1">
+                    <button type="submit" class="btn btn-primary">
+                        📊 Télécharger Rapport CSV
+                    </button>
+                </form>
             </div>
         </div>
 
@@ -371,17 +576,17 @@ try {
         <div class="section">
             <h2>⚡ Actions rapides</h2>
             <div class="quick-actions">
-                <a href="/admin/fix_antivirus_status.php" class="btn btn-warning">
-                    🔄 Corriger les statuts antivirus
-                </a>
-                <a href="/admin/security_threats.php" class="btn btn-danger">
-                    🚨 Voir les menaces détectées
+                <a href="/admin/dashboard.php" class="btn btn-secondary">
+                    📊 Retour au dashboard
                 </a>
                 <a href="/admin/logs.php" class="btn btn-info">
                     📝 Consulter les logs
                 </a>
-                <a href="/admin/dashboard.php" class="btn btn-secondary">
-                    📊 Retour au dashboard
+                <button onclick="location.reload()" class="btn btn-warning">
+                    🔄 Actualiser la page
+                </button>
+                <a href="/admin/debug_clamav.php" class="btn btn-danger">
+                    🔧 Debug ClamAV
                 </a>
             </div>
         </div>
@@ -389,7 +594,7 @@ try {
 
     <?php include '../includes/footer.php'; ?>
 
-    <!-- CSS optimisé -->
+    <!-- Le CSS reste identique -->
     <style>
     /* Page header */
     .page-header {
@@ -742,7 +947,7 @@ try {
         margin: 1rem 0 0 1.5rem;
         line-height: 1.6;
     }
-
+    
     .test-examples {
         margin-top: 1.5rem;
         padding-top: 1rem;
@@ -773,7 +978,7 @@ try {
         justify-content: center;
         gap: 0.5rem;
     }
-
+    
     /* Boutons */
     .btn {
         display: inline-flex;
@@ -889,29 +1094,37 @@ try {
     document.addEventListener('DOMContentLoaded', function() {
         console.log('🦠 Page antivirus chargée');
         
-        // Gestion du formulaire de scan
-        const scanForm = document.getElementById('scanForm');
-        const fileInput = document.getElementById('fileToScan');
-        const fileLabel = document.querySelector('.file-input-label');
-        const scanBtn = document.getElementById('scanBtn');
-        
-        if (fileInput && fileLabel) {
-            fileInput.addEventListener('change', function() {
-                const fileName = this.files[0]?.name || 'Choisir un fichier';
-                fileLabel.textContent = fileName.length > 30 ? fileName.substring(0, 30) + '...' : fileName;
+        // Debug pour le bouton CSV
+        const csvForm = document.querySelector('form[method="POST"]');
+        if (csvForm) {
+            csvForm.addEventListener('submit', function(e) {
+                console.log('📊 Génération CSV demandée');
+                const btn = this.querySelector('button[type="submit"]');
+                btn.disabled = true;
+                btn.innerHTML = '🔄 Génération en cours...';
                 
-                // Vérifier la taille du fichier
-                if (this.files[0] && this.files[0].size > 10 * 1024 * 1024) {
-                    showNotification('⚠️ Fichier volumineux (>10MB). L\'analyse peut être plus lente.', 'warning');
-                }
+                // Réactiver le bouton après 5 secondes si pas de téléchargement
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '📊 Télécharger Rapport CSV';
+                }, 5000);
             });
         }
         
+        // Gestion du formulaire de test
+        const scanForm = document.getElementById('scanForm');
         if (scanForm) {
-            scanForm.addEventListener('submit', function() {
+            scanForm.addEventListener('submit', function(e) {
+                const fileInput = document.getElementById('fileToScan');
+                if (!fileInput.files.length) {
+                    e.preventDefault();
+                    showNotification('⚠️ Veuillez sélectionner un fichier', 'warning');
+                    return;
+                }
+                
+                const scanBtn = document.getElementById('scanBtn');
                 scanBtn.disabled = true;
                 scanBtn.innerHTML = '🔄 Analyse en cours...';
-                showNotification('🔍 Analyse du fichier en cours...', 'info');
             });
         }
     });
@@ -941,15 +1154,7 @@ try {
     // Fonction pour voir les détails d'une menace
     function viewThreatDetails(fileId) {
         showNotification('🔍 Chargement des détails...', 'info');
-        // Redirection vers une page de détails ou ouverture d'un modal
-        window.open(`/admin/file_details.php?id=${fileId}`, '_blank');
-    }
-
-    // Fonction pour télécharger un rapport
-    function downloadReport() {
-        showNotification('📊 Génération du rapport...', 'info');
-        // Ici vous pourriez implémenter la génération d'un rapport PDF ou CSV
-        window.location.href = '/admin/generate_antivirus_report.php';
+        window.open(`/admin/dashboard.php?highlight=${fileId}`, '_blank');
     }
 
     // Système de notifications

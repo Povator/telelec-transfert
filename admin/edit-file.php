@@ -1,5 +1,16 @@
 <?php
-// filepath: /home/stagiaire/telelec-transfert/admin/edit-file.php
+/**
+ * Modification des métadonnées de fichier
+ * 
+ * Permet la modification sécurisée du nom de fichier et du code
+ * de téléchargement avec validation et logging.
+ *
+ * @author  TeleLec
+ * @version 1.1
+ * @requires Session admin active
+ * @method POST
+ */
+
 session_start();
 
 // Vérifier les permissions admin

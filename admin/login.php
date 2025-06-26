@@ -1,9 +1,12 @@
 <?php
 /**
- * Script de connexion pour l'interface administrateur
+ * Page de connexion administrateur
  * 
+ * Gère l'authentification des administrateurs avec logging
+ * des tentatives de connexion réussies et échouées.
+ *
  * @author  TeleLec
- * @version 1.0
+ * @version 1.3
  */
 session_start();
 if (isset($_SESSION['admin']) && $_SESSION['admin'] === true) {
@@ -39,20 +42,41 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($user && password_verify($password, $user['password'])) {
         $_SESSION['admin'] = true;
 
-        header("Location: /admin/dashboard.php");
-
+        // AJOUT: Logger la connexion réussie AVANT la redirection
         try {
-            // CORRECTION: Définir le fuseau horaire et utiliser PHP pour la date
             date_default_timezone_set('Europe/Paris');
             $actionDate = date('Y-m-d H:i:s');
             
+            /**
+             * Enregistre une connexion administrateur réussie
+             * 
+             * @param string $actionDate Date et heure de la connexion
+             * @param string $userIp Adresse IP de l'administrateur
+             * @param string $details Détails de la connexion incluant le nom d'utilisateur
+             */
+            $logSql = "INSERT INTO file_logs (action_type, action_date, user_ip, status, details) 
+                      VALUES ('admin_login_success', ?, ?, 'success', ?)";
+            $logStmt = $conn->prepare($logSql);
+            $logStmt->execute([
+                $actionDate,
+                $_SERVER['REMOTE_ADDR'],
+                'Connexion administrateur réussie - Utilisateur: ' . htmlspecialchars($username)
+            ]);
+        } catch (PDOException $e) {
+            error_log("Erreur log connexion réussie: " . $e->getMessage());
+        }
+
+        header("Location: /admin/dashboard.php");
+
+        try {
+            // Session existante...
             $sql = "INSERT INTO sessions (id, user_id, last_activity, ip_address, user_agent) 
             VALUES (?, ?, ?, ?, ?)";
             $stmt = $conn->prepare($sql);
             $stmt->execute([
                 session_id(),
                 1,
-                $actionDate, // Utiliser la variable PHP
+                $actionDate,
                 $_SERVER['REMOTE_ADDR'],
                 $_SERVER['HTTP_USER_AGENT']
             ]);
